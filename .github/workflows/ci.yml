@@ -1,0 +1,15 @@
+name: Continuous Integration
+
+on: [push pull_request]
+
+jobs:
+  continuous-integration:
+    name: Run all tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run babashka-test-action
+        uses: liquidz/babashka-test-action@v1
+        with:
+          source-paths: 'src'
+          test-paths: 'test'
+          test-file-pattern: '_test.clj$'
