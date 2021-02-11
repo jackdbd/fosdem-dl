@@ -11,8 +11,16 @@
             [clojure.java.io :as io])
   (:import [java.lang Thread]))
 
+
 (pods/load-pod 'org.babashka/etaoin "0.0.1")
+
+;; pod-jaydeesimon-jsoup is not yet published on the babashka pod registry, so
+;; we need to compile it as a GraalVM native-image
+;; https://github.com/jaydeesimon/pod-jaydeesimon-jsoup
+(pods/load-pod "./pod-jaydeesimon-jsoup")
+
 (require '[pod.babashka.etaoin :as eta])
+(require '[pod.jaydeesimon.jsoup :as jsoup])
 
 (def schedule-page "https://fosdem.org/2021/schedule/")
 (def video-page "https://video.fosdem.org/")
@@ -131,6 +139,12 @@
     (println usage-help)
     (System/exit 1))
   (shutdown-hook)
+  (let [text (-> (curl/get "https://clojure.org")
+                 :body
+                 (jsoup/select "div.clj-header-message")
+                 first
+                 :text)]
+    (println text))
   (let [options (:options (parse-opts *command-line-args* cli-options))
         coll-contains? (partial contains? options)
         download-attachments (:attachments options)]
