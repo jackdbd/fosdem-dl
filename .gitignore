@@ -1,6 +1,8 @@
 .calva/
 .clj-kondo/
 
+downloads/
+
 # pod-jaydeesimon-jsoup is not yet published on the babashka pod registry, so
 # I just compiled it as a GraalVM native-image
 pod-jaydeesimon-jsoup
