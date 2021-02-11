@@ -22,6 +22,8 @@
 (require '[pod.babashka.etaoin :as eta])
 (require '[pod.jaydeesimon.jsoup :as jsoup])
 
+;; from 2013 to 2021 the structure of the webpage of any conference track stays the same
+
 (def schedule-page "https://fosdem.org/2021/schedule/")
 (def video-page "https://video.fosdem.org/")
 ;; TODO: tracks as command line argument, or maybe from EDN file?
@@ -34,8 +36,6 @@
 (def mp4-example "https://ftp.fau.de/fosdem/2020/AW1.125/mgmtconfigmore.mp4")
 (def zip-example "http://ipv4.download.thinkbroadband.com/5MB.zip")
 ;; (def zip-example "http://ipv4.download.thinkbroadband.com/200MB.zip")
-(def attachments-example '("https://archive.fosdem.org/2020/schedule/event/webperf_qoe_research/attachments/slides/3686/export/events/attachments/webperf_qoe_research/slides/3686/FOSDEM2020_webqoe_drossi.pdf"
-                           "https://archive.fosdem.org/2020/schedule/event/webperf_boomerang_optimisation/attachments/slides/3750/export/events/attachments/webperf_boomerang_optimisation/slides/3750/Check_Yourself_Before_You_Wreck_Yourself.pdf"))
 
 ;; There is a FOSDEM 2004 website, but I couldn't find any talk.
 (defn validate-year
@@ -86,20 +86,6 @@
     (eta/screenshot driver fname)
     (eta/quit driver)))
 
-(defn- raw-args
-  [attachments]
-  (->> (map #(conj ["-O"] %) attachments)
-       (flatten)))
-
-(defn- get-attachments
-  []
-  (let [attachments attachments-example
-        resp (curl/get nil {:debug true
-                            :raw-args (raw-args attachments)
-                            :throw false})]
-    (when (= 200 (:status resp))
-      (println (str "attachments downloaded")))))
-
 (defn- get-video
   [url]
   (let [resp (curl/get url {:debug true
@@ -117,18 +103,39 @@
       (println "OPTIONS " (:options resp))
       (println "HEADERS " (:headers resp)))))
 
-;; TODO: find the URLs for the attachments starting from the talk's main page
-(defn download-webm
-  [url download-attachments]
-  (when download-attachments
-    (get-attachments))
-  (get-video url))
+(defn m->href
+  [{attrs :attrs}]
+  (let [end (get attrs "href")]
+    (str "https://fosdem.org" end)))
 
-(defn download-mp4
-  [url download-attachments]
-  (when download-attachments
-    (get-attachments))
-  (get-video url))
+(defn url->hrefs
+  [url]
+  (let [links (-> (curl/get url)
+                  :body
+                  (jsoup/select "table:last-child tr>td:nth-child(2)>a[href]"))
+        hrefs (map m->href links)]
+    hrefs))
+
+(defn- download-attachment
+  [url]
+  (let [resp (curl/get url {:debug true
+                            :raw-args ["-O"]
+                            :throw false})]
+    (when (= 200 (:status resp))
+      (println url "downloaded"))))
+
+(defn visit-page!
+  "Visit `url` and apply side effect `f!`"
+  [f! url]
+  (let [links (-> (curl/get url {:throw false})
+              :body
+              (jsoup/select ".event-attachments>li>a[href]"))
+        hrefs (map m->href links)]
+    ;; (println "Downloading attachments from" url)
+    (doseq [url hrefs]
+      (f! url))))
+
+(def download-attachment-on-visit! (partial visit-page! download-attachment))
 
 (defn -main
   "You can run this program with [babashka](https://github.com/babashka/babashka):
@@ -139,15 +146,13 @@
     (println usage-help)
     (System/exit 1))
   (shutdown-hook)
-  (let [text (-> (curl/get "https://clojure.org")
-                 :body
-                 (jsoup/select "div.clj-header-message")
-                 first
-                 :text)]
-    (println text))
   (let [options (:options (parse-opts *command-line-args* cli-options))
         coll-contains? (partial contains? options)
-        download-attachments (:attachments options)]
+        download-attachments (:attachments options)
+        hrefs (url->hrefs track-page-example)]
+    (when download-attachments
+      (doseq [url hrefs]
+        (download-attachment-on-visit! url)))
     (when (coll-contains? :track)
       (let [track (:track options)
             year (:year options)]
@@ -155,8 +160,8 @@
     (if (:help options)
       (println usage-help)
       (if (= "webm" (:format options))
-        (download-webm webm-example download-attachments)
-        (download-mp4 mp4-example download-attachments)))))
+        (get-video webm-example)
+        (get-video mp4-example)))))
 
 ;; check if the current file was the file invoked from the command line
 ;; https://book.babashka.org/#main_file
