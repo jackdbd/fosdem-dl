@@ -38,11 +38,11 @@ Run all tests with:
 
 ## TODO
 
-- Add GitHub action to run tests on push.
 - Improve error handling.
 - Add more tests.
+- How do I run `.github/workflows/ci.yml` when the pod-jaydeesimon-jsoup binary is not tracked in git?
 - Save edn file with all conference tracks over the years (to validate the `--track` option for a given `--year`).
-- Accept destination directory where to download the files.
+- Accept destination directory to let the user decide where to download the files.
 - Include the talk's links too? Maybe write them in a text/markdown file?
 - Show curl's progress bar. See [here](https://github.com/babashka/babashka.curl/issues/34).
 - Make a GUI with [pod-babashka-lanterna](https://github.com/babashka/pod-babashka-lanterna)? Probably not...
