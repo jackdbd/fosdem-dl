@@ -1,0 +1,14 @@
+.calva/
+.clj-kondo/
+.cpcache/
+.github/
+.lsp/
+.portal/
+.vscode/
+downloads/
+target/
+test/
+
+.envrc
+.nrepl-port
+bb.edn
