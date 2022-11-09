@@ -1,8 +1,35 @@
+# metadata cache for Babashka pods
+.babashka/
+
+# Calva VS Code extension
 .calva/
+# unignore Calva configuration. I keep some REPL snippets there (e.g. Portal)
+!calva/config.edn
+
+# static analyzer and linter for Clojure code
 .clj-kondo/
+
+# classpath cache
+.cpcache/
+
+# environment variables
+.envrc
+
+# Language Server Protocol
+.lsp/
+
+.nrepl-port
+
+# Portal (REPL)
+.portal/
 
 downloads/
 
-# pod-jaydeesimon-jsoup is not yet published on the babashka pod registry, so
-# I just compiled it as a GraalVM native-image
-pod-jaydeesimon-jsoup
+old-code/
+output/
+
+# GraalVM native image compilation reports
+reports/
+
+# compilation targets
+target/
