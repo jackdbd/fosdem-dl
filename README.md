@@ -4,21 +4,25 @@
 
 ## Usage
 
-Here are some examples that show how to use the script.
+### Parameters
 
-Show help.
-
-```sh
-./fosdem-dl.sh -h
+```text
+  -y, --year YEAR      Select year (default 2020)
+  -t, --track TRACK    Select conference track (e.g. web_performance)
+  -f, --format FORMAT  Select video format (default webm)
+  -a, --attachments    Download each talk's attachments like PDFs and slides (default false)
+  -h, --help           Show help
 ```
 
-Download all the 2018 talks from the python track in .webm format (default) without any attachments.
+### Examples
+
+Download all the 2018 talks from the python track in .webm format; include no attachments.
 
 ```sh
 ./fosdem-dl.sh -y 2018 -t python
 ```
 
-Download all the 2020 talks from the web performance track in .mp4 format and include all attachments (PDF, slides, etc).
+Download all the 2020 talks from the web performance track in .mp4 format; include all attachments.
 
 ```sh
 ./fosdem-dl.sh -y 2020 -t web_performance -f mp4 -a
@@ -46,3 +50,26 @@ Run all tests with:
 - Include the talk's links too? Maybe write them in a text/markdown file?
 - Show curl's progress bar. See [here](https://github.com/babashka/babashka.curl/issues/34).
 - Make a GUI with [pod-babashka-lanterna](https://github.com/babashka/pod-babashka-lanterna)? Probably not...
+
+## GraalVM native image
+
+See also:
+
+- https://github.com/babashka/babashka/blob/master/script/compile
+- https://github.com/clj-easy/graalvm-clojure/blob/master/doc/clojure-graalvm-native-binary.md
+- https://github.com/oracle/graal/issues/1265
+
+```sh
+native-image -jar target/fosdem-dl-0.1.0-standalone.jar \
+  -H:Name=fosdem-dl \
+  -H:+ReportExceptionStackTraces \
+  -H:ReportAnalysisForbiddenType=java.awt.Toolkit:InHeap,Allocated \
+  -H:+StaticExecutableWithDynamicLibC \
+  --diagnostics-mode \
+  --native-image-info \
+  --initialize-at-build-time \
+  --report-unsupported-elements-at-runtime \
+  --no-fallback \
+  --verbose \
+  -J-Xmx4500m
+```
