@@ -1,10 +1,9 @@
 (ns user
-  (:require
-   [clojure.java.io :as io]
-   [cuic.core :as c]
-   [cuic.chrome :as chrome]
-   [fosdem-dl.jsoup :as jsoup]
-   [fosdem-dl.util :as util]))
+  (:require [clojure.java.io :as io]
+            [cuic.core :as c]
+            [cuic.chrome :as chrome]
+            [fosdem-dl.jsoup :as jsoup]
+            [fosdem-dl.util :as util]))
 
 (prn "hello from user.clj")
 
@@ -39,19 +38,17 @@
   (def url (str "https://archive.fosdem.org/" year "/schedule/track/" track "/"))
 
   (c/goto url)
-  
+
   (def url "https://video.fosdem.org/2020/H.1309/webperf_boomerang_optimisation.webm")
   (util/get-video url)
 
-
-  ;; (require '[clojure.java.io :as io]
+;; (require '[clojure.java.io :as io]
   ;;          '[cuic.core :as c]
   ;;          '[cuic.chrome :as chrome])
   ;; (require '[etaoin.api :as e]
   ;;          '[etaoin.keys :as k]
 
-
-  ;; https://github.com/clj-commons/etaoin/blob/master/doc/01-user-guide.adoc#installing-the-browser-webdrivers
+;; https://github.com/clj-commons/etaoin/blob/master/doc/01-user-guide.adoc#installing-the-browser-webdrivers
   ;; (def driver (e/firefox {}))
   ;; (def driver (eta/chrome {}))
   ;; (eta/driver? driver :chrome)
@@ -60,8 +57,7 @@
 (comment
   (def html
     "<div><p class=\"foo\">a foo paragraph</p><p class=\"bar\">a bar paragraph</p></div>")
-  
+
   (jsoup/select html "p.foo")
   (jsoup/select html "p.bar")
-  (jsoup/select html "p.baz")
-  )
+  (jsoup/select html "p.baz"))

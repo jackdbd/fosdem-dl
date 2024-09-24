@@ -18,7 +18,7 @@
 #?(:bb (defn select
          [html selector]
          (jsoup/select html selector))
-       
+
    :clj (do
           (defn elem->m
             "Maps a jsoup Element into a Clojure map."
