@@ -42,6 +42,12 @@ Run all tests with:
 
 ## TODO
 
+> [!CAUTION]
+> At the moment this project is in a broken state because it relies on a couple of Babashka pods that are distributed as dynamically linked executables (e.g. you can check with `ldd  /home/jack/.babashka/pods/repository/justone/tabl/0.3.0/linux/x86_64/tabl`), and NixOS cannot execute them.
+> Even simply adding those pods in the `:pods` key of the `bb.edn` file breaks the project.
+> I would need to patch those dynamically linked executables (e.g. with [patchelf](https://github.com/NixOS/patchelf) ot [AutoPatchelfHook](https://nixos.wiki/wiki/Packaging/Binaries)) or find another solution.
+
+- Fix Babashka pods on NixOS or find alternative solutions.
 - Improve error handling.
 - Add more tests.
 - How do I run `.github/workflows/ci.yml` when the pod-jaydeesimon-jsoup binary is not tracked in git?

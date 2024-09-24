@@ -1,229 +1,196 @@
-;; In version 0.9.160 of babashka, the babashka CLI added as a built-in library
-;; together with task integration.
-;; https://book.babashka.org/#cli
-{:min-bb-version "0.9.160"
-
- :paths ["src" "resources"]
-
- ;; reuse dependencies declared in deps.edn
- :deps {local/deps {:local/root "."}}
-
- ;; https://github.com/babashka/pod-registry
- ;; https://github.com/babashka/pods#in-a-babashka-project
- :pods {justone/tabl {:version "0.3.0"}
-        pod.jaydeesimon.jsoup {:path "./resources/pod-jaydeesimon-jsoup"
-                               :cache true}}
-
- :tasks
- {:requires ([babashka.process :refer [process check]]
-             [clojure.edn :as edn]
-             [clojure.string :as str])
-
-  build:bb-uberjar
-  {:doc "Build the uberjar (it must be called with bb foo.jar, not java -jar foo.jar)"
-   :task (let [project (-> (edn/read-string (slurp "deps.edn")) :aliases :neil :project)
-               name (first (str/split (str (:name project)) (re-pattern "/")))
-               jar (format "target/%s-%s-standalone.jar" name (:version project))
-               cmd (format "bb uberjar %s --main fosdem-dl.fosdem-dl " jar)]
-           (println cmd)
-           (shell cmd))}
-
-  build:uberjar
-  {:doc "Build the uberjar (in the host, not in a container)"
-   :task (clojure "-T:build uber")}
-
-  build:native-image
-  {:doc "Build the GraalVM native image (in the host, not in a container)"
-   ;; :depends [build:uberjar]
-   :task (let [project (-> (edn/read-string (slurp "deps.edn")) :aliases :neil :project)
-               name (first (str/split (str (:name project)) (re-pattern "/")))
-               jar (format "target/%s-%s-standalone.jar" name (:version project))
-               working-dir (-> (process ["pwd"] {:out :string})
-                               check :out str/split-lines first)
-               jvm-max-heap-size "-Xmx4500m"
-               optimization-level "-Ob"
+{:deps {local/deps {:local/root "."}}
+ :min-bb-version "1.3.189"
+ :paths ["bb" "src" "resources"]
+ :pods {;; justone/tabl {:version "0.3.0"}
+        ;; pod.jaydeesimon.jsoup {:path "./resources/pod-jaydeesimon-jsoup"
+        ;;                        :cache true}
+        }
+ :tasks {:requires ([babashka.process :refer [process check]]
+                    [clojure.edn :as edn]
+                    [tasks]
+                    [clojure.string :as str])
+         build:bb-uberjar {:doc "Build the uberjar (it must be called with bb foo.jar, not java -jar foo.jar)"
+                           :task (let [project (-> (edn/read-string (slurp "deps.edn")) :aliases :neil :project)
+                                       name (first (str/split (str (:name project)) (re-pattern "/")))
+                                       jar (format "target/%s-%s-standalone.jar" name (:version project))
+                                       cmd (format "bb uberjar %s --main fosdem-dl.fosdem-dl " jar)]
+                                   (println cmd)
+                                   (shell cmd))}
+         build:uberjar {:doc "Build the uberjar (in the host, not in a container)"
+                        :task (clojure "-T:build uber")}
+         build:native-image {:doc "Build the GraalVM native image (in the host, not in a container)"
+                             ;; :depends [build:uberjar]
+                             :task (let [project (-> (edn/read-string (slurp "deps.edn")) :aliases :neil :project)
+                                         name (first (str/split (str (:name project)) (re-pattern "/")))
+                                         jar (format "target/%s-%s-standalone.jar" name (:version project))
+                                         working-dir (-> (process ["pwd"] {:out :string})
+                                                         check :out str/split-lines first)
+                                         jvm-max-heap-size "-Xmx4500m"
+                                         optimization-level "-Ob"
                ;; optimization-level "-O1"
-               graal-opts ["-jar" jar
+                                         graal-opts ["-jar" jar
                            ;; https://www.graalvm.org/22.0/reference-manual/native-image/HostedvsRuntimeOptions/
-                           "-H:Name=fosdem-dl"
+                                                     "-H:Name=fosdem-dl"
                            ;; This directory must exist
-                           "-H:Path=target"
-                           "-H:+ReportExceptionStackTraces"
+                                                     "-H:Path=target"
+                                                     "-H:+ReportExceptionStackTraces"
                            ;; By default, the native-image tool will not integrate
                            ;; any of the resources that are on the classpath into
                            ;; the native executable.
                            ;; https://www.graalvm.org/22.1/reference-manual/native-image/Resources/
                            ;; "-H:IncludeResources=\"^pod-.*\""
-                           "-H:Log=registerResource:5"
-                           optimization-level
+                                                     "-H:Log=registerResource:5"
+                                                     optimization-level
                            ;; If GraalVM fails to generate the standalone executable,
                            ;; don't create a fallback image (which would require
                            ;; a JDK to run), but report the failure instead.
-                           "--no-fallback"
+                                                     "--no-fallback"
                            ;; The Serial garbage collector is the default one.
-                           "--gc=serial"
+                                                     "--gc=serial"
 
                            ;; https://www.graalvm.org/22.1/reference-manual/native-image/StaticImages/
                            ;; Use these 2 options to compile a mostly statically-linked binary
-                           "-H:+StaticExecutableWithDynamicLibC"
-                           "--libc=glibc"
+                                                     "-H:+StaticExecutableWithDynamicLibC"
+                                                     "--libc=glibc"
                            ;; Use these 2 options to compile a completely statically-linked binary
                            ;; "--static"
                            ;; "--libc=musl"
                            ;; "--initialize-at-build-time=pod.tabl.fancy$eval138$loading__6789__auto____139"
-                           "--initialize-at-run-time=pod.tabl.fancy$eval138$loading__6789__auto____139"
-                           "--trace-class-initialization=pod.tabl.fancy$eval138$loading__6789__auto____139,pod.tabl.fancy$eval142$fn__143"
+                                                     "--initialize-at-run-time=pod.tabl.fancy$eval138$loading__6789__auto____139"
+                                                     "--trace-class-initialization=pod.tabl.fancy$eval138$loading__6789__auto____139,pod.tabl.fancy$eval142$fn__143"
                            ;; "--initialize-at-run-time=pod.tabl.doric$eval152$fn__153,pod.tabl.fancy$eval138$loading__6789__auto____139,pod.tabl.fancy$eval142$fn__143"
                            ;; "--trace-class-initialization=pod.tabl.doric$eval152$fn__153,pod.tabl.fancy$eval138$loading__6789__auto____139,pod.tabl.fancy$eval142$fn__143"
                            ;; "--initialize-at-build-time=pod.tabl.doric$eval148$loading__6789__auto____149,pod.tabl.fancy$eval142$fn__143"
                            ;; "--initialize-at-build-time=pod.tabl.doric,pod.tabl.fancy"
                            ;; "--trace-class-initialization=pod.tabl.doric$eval152$fn__153,pod.tabl.fancy$eval138$loading__6789__auto____139,pod.tabl.fancy$eval142$fn__143"
 
-                           "-H:+PrintClassInitialization"
-                           "--diagnostics-mode"
-                           "--native-image-info"
-                           "--verbose"
-                           "-Dclojure.compiler.direct-linking=true"
+                                                     "-H:+PrintClassInitialization"
+                                                     "--diagnostics-mode"
+                                                     "--native-image-info"
+                                                     "--verbose"
+                                                     "-Dclojure.compiler.direct-linking=true"
                            ;; "--initialize-at-build-time=pod.jaydeesimon.jsoup$eval142$fn__143,pod.jaydeesimon.jsoup$eval138$loading__6789__auto____139"
-                           (format "-J%s" jvm-max-heap-size)]
-               graal-optz ["-jar" jar
-                           "--allow-incomplete-classpath"
-                           (format "-H:Name=%s" name)
-                           optimization-level
-                           "-H:+PrintClassInitialization"
-                           "-H:+ReportExceptionStackTraces"
+                                                     (format "-J%s" jvm-max-heap-size)]
+                                         graal-optz ["-jar" jar
+                                                     "--allow-incomplete-classpath"
+                                                     (format "-H:Name=%s" name)
+                                                     optimization-level
+                                                     "-H:+PrintClassInitialization"
+                                                     "-H:+ReportExceptionStackTraces"
                            ;; https://www.graalvm.org/22.1/reference-manual/native-image/Resources/
-                           "-H:IncludeResources=\"^pod-.*\""
-                           "-H:Log=registerResource:5"
-                           "-H:ReportAnalysisForbiddenType=java.awt.Toolkit:InHeap,Allocated"
-                           "--diagnostics-mode"
-                           "--native-image-info"
-                           "--features=InitAtBuildTimeFeature"
+                                                     "-H:IncludeResources=\"^pod-.*\""
+                                                     "-H:Log=registerResource:5"
+                                                     "-H:ReportAnalysisForbiddenType=java.awt.Toolkit:InHeap,Allocated"
+                                                     "--diagnostics-mode"
+                                                     "--native-image-info"
+                                                     "--features=InitAtBuildTimeFeature"
                         ;;    "--initialize-at-run-time=pod.jaydeesimon.jsoup"
-                           "--initialize-at-build-time=pod.jaydeesimon.jsoup$eval142$fn__143,pod.jaydeesimon.jsoup$eval138$loading__6789__auto____139"
-                           "--report-unsupported-elements-at-runtime"
+                                                     "--initialize-at-build-time=pod.jaydeesimon.jsoup$eval142$fn__143,pod.jaydeesimon.jsoup$eval138$loading__6789__auto____139"
+                                                     "--report-unsupported-elements-at-runtime"
                            ;; if GraalVM fails to generate the standalone executable,
                            ;; don't create a fallback image (which would require
                            ;; a JDK to run), but report the failure instead
-                           "--no-fallback"
-                           "--gc=serial"
-                           "-H:+StaticExecutableWithDynamicLibC"
-                           "--libc=glibc"
-                           "--verbose"
-                           "--trace-class-initialization=pod.jaydeesimon.jsoup$eval142$fn__143,pod.jaydeesimon.jsoup$eval138$loading__6789__auto____139"
-                           "--trace-object-instantiation=java.io.FileDescriptor"
-                           "--trace-object-instantiation=java.lang.ProcessImpl"
-                           "-g"
-                           (format "-J%s" jvm-max-heap-size)]
-               cmd (format "native-image %s" (str/join " " graal-opts))]
-           (println "=== Build GraalVM native image ===")
-           (println cmd)
-           (println "=== === === === === === === === ==")
-           (shell cmd))}
-
-  clean
-  {:doc "Remove compilation artifacts and downloads (in parallel)"
-   :task (run '-clean {:parallel true})}
-
-  -clean
-  {:depends [clean:artifacts clean:downloads]}
-
-  clean:artifacts
-  {:doc "Remove compilation artifacts"
-   :task (clojure "-T:build clean")}
-
-  clean:downloads
-  {:doc "Remove downloads"
-   :task (shell "rm -rf ./downloads")}
-
-  demo:main
-  {:doc "Show how to use the CLI (runs the uberjar)"
-   :task (let [year 2020
-               track "web_performance"
-               video-format "webm"
+                                                     "--no-fallback"
+                                                     "--gc=serial"
+                                                     "-H:+StaticExecutableWithDynamicLibC"
+                                                     "--libc=glibc"
+                                                     "--verbose"
+                                                     "--trace-class-initialization=pod.jaydeesimon.jsoup$eval142$fn__143,pod.jaydeesimon.jsoup$eval138$loading__6789__auto____139"
+                                                     "--trace-object-instantiation=java.io.FileDescriptor"
+                                                     "--trace-object-instantiation=java.lang.ProcessImpl"
+                                                     "-g"
+                                                     (format "-J%s" jvm-max-heap-size)]
+                                         cmd (format "native-image %s" (str/join " " graal-opts))]
+                                     (println "=== Build GraalVM native image ===")
+                                     (println cmd)
+                                     (println "=== === === === === === === === ==")
+                                     (shell cmd))}
+         classpath {:doc "Print the classpath"
+                    :task (tasks/print-classpath)}
+         clean {:doc "Remove compilation artifacts and downloads (in parallel)"
+                :task (run '-clean {:parallel true})}
+         -clean {:depends [clean:artifacts clean:downloads]}
+         clean:artifacts {:doc "Remove compilation artifacts"
+                          :task (clojure "-T:build clean")}
+         clean:downloads {:doc "Remove downloads"
+                          :task (shell "rm -rf ./downloads")}
+         demo:main {:doc "Show how to use the CLI (runs the uberjar)"
+                    :task (let [year 2020
+                                track "web_performance"
+                                video-format "webm"
                ;; The usage of clojure.java.io/resource assumes a classpath, so
                ;; when this is used in your uberscript, you still have to set a
                ;; classpath and bring the resources along.
                ;; https://book.babashka.org/#_classpath
                ;;    cmd (format "bb --debug --classpath src:resources -x fosdem-dl.fosdem-dl/-main")
                ;;    cmd (format "bb --debug --classpath src:resources -x fosdem-dl.fosdem-dl/-main --help")
-               cmd (format "bb --debug -x fosdem-dl.fosdem-dl/-main --year %s --track %s --format %s" year track video-format)]
-           (println cmd)
-           (shell cmd))}
-
-  demo:native-image
-  {:doc "Show how to use the CLI (runs the GraalVM native image)"
-;;    :depends [build:native-image]
-   :task (let [year 2020
-               track "web_performance"
-               video-format "webm"
-               cmd (format "./target/fosdem-dl --year %s --track %s --format %s" year track video-format)]
-           (println cmd)
-           (shell cmd))}
-
-  demo:uberjar
-  {:doc "Show how to use the CLI (calls the -main function of the fosdem-dl.fosdem-dl namespace)"
-;;    :depends [build:uberjar]
-   :task (let [project (-> (edn/read-string (slurp "deps.edn")) :aliases :neil :project)
-               name (first (str/split (str (:name project)) (re-pattern "/")))
-               version (:version project)
-               year 2020
-               track "web_performance"
-               video-format "webm"
+                                cmd (format "bb --debug -x fosdem-dl.fosdem-dl/-main --year %s --track %s --format %s" year track video-format)]
+                            (println cmd)
+                            (shell cmd))}
+         demo:native-image {:doc "Show how to use the CLI (runs the GraalVM native image)"
+                            ;;    :depends [build:native-image]
+                            :task (let [year 2020
+                                        track "web_performance"
+                                        video-format "webm"
+                                        cmd (format "./target/fosdem-dl --year %s --track %s --format %s" year track video-format)]
+                                    (println cmd)
+                                    (shell cmd))}
+         demo:uberjar {:doc "Show how to use the CLI (calls the -main function of the fosdem-dl.fosdem-dl namespace)"
+                       ;;    :depends [build:uberjar]
+                       :task (let [project (-> (edn/read-string (slurp "deps.edn")) :aliases :neil :project)
+                                   name (first (str/split (str (:name project)) (re-pattern "/")))
+                                   version (:version project)
+                                   year 2020
+                                   track "web_performance"
+                                   video-format "webm"
             ;;    cmd (format "java -jar target/%s-%s-standalone.jar" name version)
             ;;    cmd (format "java -jar target/%s-%s-standalone.jar --help" name version)
-               cmd (format "java -jar target/%s-%s-standalone.jar --year %s --track %s --format %s" name version year track video-format)]
-           (println cmd)
-           (shell cmd))}
-
-  dk:build
-  {:doc "Build the container image that builds the uberjar and the GraalVM native image"
-   :task (let [project (-> (edn/read-string (slurp "deps.edn")) :aliases :neil :project)
-               name (first (str/split (str (:name project)) (re-pattern "/")))
-               version (:version project)
-               options ["--file" "Dockerfile"
-                        "--build-arg" (str "APP_NAME=" name)
-                        "--build-arg" (str "APP_VERSION=" version)
-                        #_"--quiet"
-                        "--tag" (str name ":" version)]
-               cmd (format "docker build ./ %s" (str/join " " options))]
-           (shell cmd))}
-
-  dk:cp
-  {:doc "Copy the build artifacts (jar, native image) from the Docker container"
-   :depends [dk:build]
-   :task (let [project (-> (edn/read-string (slurp "deps.edn")) :aliases :neil :project)
-               image-name (first (str/split (str (:name project)) (re-pattern "/")))
-               image-tag (:version project)
-               image (str image-name ":" image-tag)
-               working-dir (-> (process ["pwd"] {:out :string})
-                               check :out str/split-lines first)
-               container-id (-> (process ["docker" "create" image] {:out :string})
-                                check :out str/split-lines first)
-               cmd (format "docker cp %s:/app %s/output" container-id working-dir)]
-           (println cmd)
-           (shell cmd))}
-
-  dk:run
-  {:doc "Execute the fosdem-dl CLI in a Docker container"
+                                   cmd (format "java -jar target/%s-%s-standalone.jar --year %s --track %s --format %s" name version year track video-format)]
+                               (println cmd)
+                               (shell cmd))}
+         dep:upgrade {:doc "Upgrade all dependencies"
+                      :task (shell "neil dep upgrade")}
+         dk:build {:doc "Build the container image that builds the uberjar and the GraalVM native image"
+                   :task (let [project (-> (edn/read-string (slurp "deps.edn")) :aliases :neil :project)
+                               name (first (str/split (str (:name project)) (re-pattern "/")))
+                               version (:version project)
+                               options ["--file" "Dockerfile"
+                                        "--build-arg" (str "APP_NAME=" name)
+                                        "--build-arg" (str "APP_VERSION=" version)
+                                        #_"--quiet"
+                                        "--tag" (str name ":" version)]
+                               cmd (format "docker build ./ %s" (str/join " " options))]
+                           (shell cmd))}
+         dk:cp {:doc "Copy the build artifacts (jar, native image) from the Docker container"
+                :depends [dk:build]
+                :task (let [project (-> (edn/read-string (slurp "deps.edn")) :aliases :neil :project)
+                            image-name (first (str/split (str (:name project)) (re-pattern "/")))
+                            image-tag (:version project)
+                            image (str image-name ":" image-tag)
+                            working-dir (-> (process ["pwd"] {:out :string})
+                                            check :out str/split-lines first)
+                            container-id (-> (process ["docker" "create" image] {:out :string})
+                                             check :out str/split-lines first)
+                            cmd (format "docker cp %s:/app %s/output" container-id working-dir)]
+                        (println cmd)
+                        (shell cmd))}
+         dk:run {:doc "Execute the fosdem-dl CLI in a Docker container"
 ;;    :depends [dk:cp]
-   :task (let [project (-> (edn/read-string (slurp "deps.edn")) :aliases :neil :project)
-               image-name (first (str/split (str (:name project)) (re-pattern "/")))
-               image-tag (:version project)
-               image (str image-name ":" image-tag)
+                 :task (let [project (-> (edn/read-string (slurp "deps.edn")) :aliases :neil :project)
+                             image-name (first (str/split (str (:name project)) (re-pattern "/")))
+                             image-tag (:version project)
+                             image (str image-name ":" image-tag)
                ;; https://www.graalvm.org/22.0/reference-manual/native-image/MemoryManagement/#printing-garbage-collections
-               gc-options "-XX:+PrintGC -XX:+VerboseGC"
-               args "--help"
+                             gc-options "-XX:+PrintGC -XX:+VerboseGC"
+                             args "--help"
             ;;    args "--year 2020 --track web_performance --format webm"
-               cmd (format "docker run -it --rm %s fosdem-dl %s %s" image gc-options args)]
-           (println cmd)
-           (shell cmd))}
-
-  graph
-  {:doc "Display a dependency graphs using Graphviz"
- ;; https://github.com/clojure/tools.deps.graph
-   :task (clojure "-X:graph graph")}
-
-  install
-  {:doc "Install dependencies"
-   :task (shell "clj -A:dev")}}}
+                             cmd (format "docker run -it --rm %s fosdem-dl %s %s" image gc-options args)]
+                         (println cmd)
+                         (shell cmd))}
+         graph {:doc "Generate a graph of dependencies between namespaces"
+                :task (clojure "-X:hiera" :layout :vertical)}
+         graph:copy {:depends [graph]
+                     :doc "Copy the image of the graph of namespace to resources/img"
+                     :task (shell "cp target/hiera/namespaces.png resources/img")}
+         install {:doc "Install dependencies"
+                  :task (shell "clj -A:dev")}}}

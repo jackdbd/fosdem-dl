@@ -143,4 +143,3 @@ Usage: fosdem-dl <subcommand>
 ;;           :track "web_performance"
 ;;           :attachments true
 ;;           :format "webm"}))
-

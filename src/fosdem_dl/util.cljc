@@ -55,10 +55,10 @@
                                        reverse
                                        (take 3))
         webm-url (format "https://ftp.fau.de/fosdem/%s/%s/%s/" year room webm-filename)]
-    
+
     ;; TODO: render a meaningful progress in the progress bar
     (pr/print (pr/tick bar 25))
-    
+
     (case video-format
       "webm" (let [filepath (str dest webm-filename)
                    _resp (curl/get webm-url {:raw-args ["-o" filepath]
@@ -110,7 +110,7 @@
   (download-video! body dest "webm")
 
   (download-attachment! url dest)
-  
+
   ;; (format "https://ftp.fau.de/fosdem/%s/%s/%s/" 2020 "ciccio" "foo.webm")
 
   ;; (json/parse-string (:body resp))

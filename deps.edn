@@ -1,26 +1,20 @@
-{:paths ["src" "resources"]
- 
- :deps {babashka/babashka {:mvn/version "1.0.165"}
+{:aliases {:build {:deps {io.github.clojure/tools.build {:git/tag "v0.8.4" :git/sha "8c3cd69"}}
+                   :ns-default build}
+           :dev {:extra-deps {cuic/cuic {:mvn/version "1.1.0"}
+                              etaoin/etaoin {:mvn/version "1.1.41"}
+                              djblue/portal {:mvn/version "0.57.3"}}
+                 :extra-paths ["bb" "dev"]}
+           :exec {:extra-deps {org.babashka/cli {:mvn/version "0.8.60"}}
+                  :main-opts ["-m" "babashka.cli.exec"]}
+           :hiera {:deps {io.github.greglook/clj-hiera {:git/tag "2.0.0", :git/sha "b14e514"}}
+                   :exec-args {}
+                   :exec-fn hiera.main/graph}
+           :graph {:replace-deps {org.clojure/tools.deps.graph {:mvn/version "1.1.68"}}
+                   :ns-default clojure.tools.deps.graph}
+           :neil {:project {:name fosdem-dl/fosdem-dl}}}
+ :deps {babashka/babashka {:mvn/version "1.4.192"}
         justone/tabl {:git/url "https://github.com/justone/tabl.git" :git/sha "6de881ff75db1a7325fa4ec429c98ce8d055c309"}
-        org.clojure/clojure {:mvn/version "1.11.1"}
-        org.jsoup/jsoup {:mvn/version "1.15.3"}
+        org.clojure/clojure {:mvn/version "1.12.0"}
+        org.jsoup/jsoup {:mvn/version "1.18.1"}
         progrock/progrock {:mvn/version "0.1.2"}}
-
- :aliases
- {:build
-  {:deps {io.github.clojure/tools.build {:git/tag "v0.8.4" :git/sha "8c3cd69"}}
-   :ns-default build}
-  
-  :dev {:extra-paths ["dev"]
-        :extra-deps {cuic/cuic {:mvn/version "1.0.0-RC2"}
-                     etaoin/etaoin {:mvn/version "1.0.38"}
-                     djblue/portal {:mvn/version "0.34.0"}}}
-
-  :exec {:extra-deps {org.babashka/cli {:mvn/version "0.4.39"}}
-         :main-opts ["-m" "babashka.cli.exec"]}
-
-  :graph {:replace-deps {org.clojure/tools.deps.graph {:mvn/version "1.1.68"}}
-          :ns-default clojure.tools.deps.graph}
-
-  :neil {:project {:name fosdem-dl/fosdem-dl
-                   :version "0.0.1"}}}}
+ :paths ["src" "resources"]}
