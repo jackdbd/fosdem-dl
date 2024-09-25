@@ -6,8 +6,10 @@
 ;; https://github.com/jaydeesimon/pod-jaydeesimon-jsoup
 
 #?(:bb  (do (require '[babashka.pods :as pods])
-            (pods/load-pod "./resources/pod-jaydeesimon-jsoup")
-            (require '[pod.jaydeesimon.jsoup :as jsoup]))
+            (pods/load-pod 'org.babashka/postgresql "0.1.2")
+            ;; (pods/load-pod "./resources/pod-jaydeesimon-jsoup")
+            (require #_'[pod.jaydeesimon.jsoup :as jsoup]
+             '[pod.babashka.postgresql :as pg]))
    :clj (do (set! *warn-on-reflection* true)
             (import [org.jsoup Jsoup]
                     [org.jsoup.nodes Attribute Document Element])))

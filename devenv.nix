@@ -16,7 +16,6 @@
   packages = with pkgs; [
     babashka # Clojure interpreter for scripting
     git
-    zlib
   ];
 
   pre-commit.hooks = {
