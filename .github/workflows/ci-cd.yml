@@ -1,0 +1,90 @@
+name: 'CI/CD'
+
+on:
+  pull_request:
+  push:
+    branches:
+      - canary
+      - main
+
+env:
+  APP_ID: fosdem-dl
+  APP_VERSION: 0.1.0-RC.1
+  GRAALVM_VERSION: 23.0.0
+  HEAP_SIZE_AT_BUILD_TIME: '-R:MaxHeapSize=1024m'
+  JAVA_VERSION: 21
+  OPTIMIZATION_LEVEL: '-O2'
+
+jobs:
+  linux:
+    name: Build (Linux)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 🛎️ Checkout
+        uses: actions/checkout@v4
+
+      - name: 🔧 Setup GraalVM
+        uses: graalvm/setup-graalvm@v1
+        with:
+          check-for-updates: true
+          distribution: graalvm-community
+          java-version: ${{ env.JAVA_VERSION }}
+          native-image-job-reports: true
+          native-image-pr-reports: true
+          version: ${{ env.GRAALVM_VERSION }}
+
+      - name: 🔧 Setup Babashka
+        uses: DeLaGuardo/setup-clojure@12.5
+        with:
+          bb: 'latest'
+      
+      - name: ⬇️ Download com.github.jackdbd/pod-jackdbd-jsoup
+        run: ./download_pod_jackdbd_jsoup.sh
+      
+      - name: 🔍 Run all tests
+        run: bb test_runner.clj
+
+      # https://github.com/liquidz/babashka-test-action/
+      # - name: Run babashka-test-action
+      #   uses: liquidz/babashka-test-action@v1
+      #   with:
+      #     source-paths: 'src'
+      #     test-paths: 'test'
+      #     test-file-pattern: '_test.clj$'
+
+      - name: 📦 Compile uberjar to x86_64-linux binary with GraalVM native-image
+        run: ./script/compile.sh
+
+  macos:
+    name: Build (macOS)
+    runs-on: macos-latest
+
+    steps:
+      - name: 🛎️ Checkout
+        uses: actions/checkout@v4
+
+      - name: 🔧 Setup GraalVM
+        uses: graalvm/setup-graalvm@v1
+        with:
+          check-for-updates: true
+          distribution: graalvm-community
+          java-version: ${{ env.JAVA_VERSION }}
+          native-image-job-reports: true
+          native-image-pr-reports: true
+          version: ${{ env.GRAALVM_VERSION }}
+
+      - name: 📦 Compile uberjar to AArch64-macOS binary with GraalVM native-image
+        run: |
+          native-image \
+            -jar ${{ env.APP_ID }}-${{ env.APP_VERSION }}-standalone.jar \
+            '-H:ReflectionConfigurationFiles=reflection.json' \
+            '-H:+ReportExceptionStackTraces' \
+            '-J-Dclojure.compiler.direct-linking=true' \
+            ${{ env.HEAP_SIZE_AT_BUILD_TIME }} \
+            ${{ env.OPTIMIZATION_LEVEL }} \
+            '-march=armv8-a' \
+            '--initialize-at-build-time' \
+            '--native-image-info' \
+            '--no-fallback' \
+            '--report-unsupported-elements-at-runtime'

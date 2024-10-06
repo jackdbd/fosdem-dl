@@ -1,43 +1,39 @@
 # fosdem-dl (FOSDEM talks downloder)
 
+![CI/CD](https://github.com/jackdbd/fosdem-dl/actions/workflows/ci-cd.yaml/badge.svg)
+
 [babashka](https://github.com/babashka/babashka) script to download talks and attachments from the 2003-2020 [FOSDEM](https://fosdem.org/2021/) websites.
+
+![Dependency graph of all the namespaces](./resources/img/namespaces.png)
 
 ## Usage
 
-### Parameters
-
-```text
-  -y, --year YEAR      Select year (default 2020)
-  -t, --track TRACK    Select conference track (e.g. web_performance)
-  -f, --format FORMAT  Select video format (default webm)
-  -a, --attachments    Download each talk's attachments like PDFs and slides (default false)
-  -h, --help           Show help
+```sh
+fosdem-dl talks --help
+fosdem-dl tracks --help
 ```
 
-### Examples
+## Examples
 
-Download all the 2018 talks from the python track in .webm format; include no attachments.
+Download all talks from the python track of FOSDEM 2018, in .webm format, with no attachments.
 
 ```sh
-./fosdem-dl.sh -y 2018 -t python
+fosdem-dl talks -y 2018 -t python
 ```
 
-Download all the 2020 talks from the web performance track in .mp4 format; include all attachments.
+Download all talks of the web performance track from FOSDEM 2020, in .mp4 format, with all attachments.
 
 ```sh
-./fosdem-dl.sh -y 2020 -t web_performance -f mp4 -a
+fosdem-dl -y 2020 -t web_performance -f mp4 -a
 ```
-
-## Build
-
-In order to use this script you need to generate a GraalVM native image of the [pod-jaydeesimon-jsoup](https://github.com/jaydeesimon/pod-jaydeesimon-jsoup) babashka pod and place it in this project's root. This is necessary because pod-jaydeesimon-jsoup is not yet published on the [Pod registry](https://github.com/babashka/pod-registry).
 
 ## Tests
 
-Run all tests with:
+Run all tests with either one of the following commands:
 
 ```sh
-./test-runner.clj
+./test_runner.clj
+bb test
 ```
 
 ## TODO
@@ -50,7 +46,6 @@ Run all tests with:
 - Fix Babashka pods on NixOS or find alternative solutions.
 - Improve error handling.
 - Add more tests.
-- How do I run `.github/workflows/ci.yml` when the pod-jaydeesimon-jsoup binary is not tracked in git?
 - Save edn file with all conference tracks over the years (to validate the `--track` option for a given `--year`).
 - Accept destination directory to let the user decide where to download the files.
 - Include the talk's links too? Maybe write them in a text/markdown file?

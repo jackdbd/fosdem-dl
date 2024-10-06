@@ -1,8 +1,9 @@
 (ns demo-jsoup
-  (:require [babashka.pods :as pods]
-            [cheshire.core :as json]
-            [clojure.string :as str]
-            [pod.jackdbd.jsoup :as jsoup]))
+  (:require
+   [babashka.pods :as pods]
+   [cheshire.core :as json]
+   [clojure.string :as str]
+   [pod.jackdbd.jsoup :as jsoup]))
 
 (def pod-name "pod-jackdbd-jsoup")
 (def pod-version "0.1.0")
