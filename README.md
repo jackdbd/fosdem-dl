@@ -4,12 +4,12 @@
 
 Download all talks from a [FOSDEM](https://fosdem.org/) conference track in a specific year.
 
-## Usage
+## Installation
 
 >[!IMPORTANT]
 > At the moment this project is only available on [GitHub Releases](https://github.com/jackdbd/fosdem-dl/releases) as [Babashka uberjar](https://book.babashka.org/#_uberjar).
 
-To run this project you will need to have:
+To use the CLI you will need to have:
 
 1. [Babashka](https://babashka.org/) installed on your machine.
 1. A [pod-jackdbd-jsoup](https://github.com/jackdbd/pod-jackdbd-jsoup) binary for your combination of OS/architecture.
@@ -24,7 +24,7 @@ To run this project you will need to have:
       └── pod-jackdbd-jsoup
 ```
 
-If all these requirements are met, you can run the project with:
+If all these requirements are met, you can use the CLI with:
 
 ```sh
 bb fosdem-dl-0.1.0-RC.1.jar
@@ -33,12 +33,55 @@ bb fosdem-dl-0.1.0-RC.1.jar
 >[!NOTE]
 > I'm trying to understand how to bundle a Babashka pod in a binary compiled with GraalVM native-image.
 
+## Usage
+
+This project strives to follow the [Command Line Interface Guidelines](https://clig.dev/).
+
 The CLI has two commands: `talks` and `tracks`.
 
 ```sh
-fosdem-dl talks --help
-fosdem-dl tracks --help
+FOSDEM Downloader
+
+Usage: fosdem-dl <command> [options]
+Available commands: tracks, talks
 ```
+
+This is the help for the `talks` command.
+
+```sh
+FOSDEM Downloader (talks)
+
+Download all talks given at a conference track at FOSDEM a given year.
+
+Options:
+  -a, --attachments       Whether to download each talk's attachments (PDFs, slides, etc)
+  -f, --format      :webm Video format #{:webm :mp4}
+  -h, --help              Help
+      --timeout     10000 HTTP connection timout in milliseconds
+  -t, --track             Conference track (e.g. databases)
+  -y, --year              Year of FOSDEM
+
+Examples:
+fosdem-dl talks -y 2020 --track databases [options]
+```
+
+This is the help for the `tracks` command.
+
+```sh
+FOSDEM Downloader (tracks)
+
+List the tracks at FOSDEM a given year.
+
+Options:
+  -h, --help Help
+  -y, --year Year of FOSDEM
+
+Examples:
+fosdem-dl tracks -y 2020
+```
+
+>[!TIP]
+> You can invoke the help of each command with `-h`, `--help`, `:h`, or `:help`.
 
 ### Examples
 
