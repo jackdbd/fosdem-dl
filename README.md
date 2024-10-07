@@ -12,12 +12,13 @@ Download all talks from a [FOSDEM](https://fosdem.org/) conference track in a sp
 To run this project you will need to have:
 
 1. [Babashka](https://babashka.org/) installed on your machine.
-1. A [pod-jackdbd-jsoup](https://github.com/jackdbd/pod-jackdbd-jsoup) binary for your combination of OS/architecture, in `resources/pod/pod-jackdbd-jsoup`
-1. A file structure like the one below:
+1. A [pod-jackdbd-jsoup](https://github.com/jackdbd/pod-jackdbd-jsoup) binary for your combination of OS/architecture.
+1. Execution permissions on the pod binary (e.g. `chmod +x pod-jackdbd-jsoup`).
+1. A file structure like the one below.
 
 ```sh
 .
-├── fosdem-dl-0.4.0-RC.1.jar
+├── fosdem-dl-0.1.0-RC.1.jar
 └── resources
    └── pod
       └── pod-jackdbd-jsoup
@@ -26,7 +27,7 @@ To run this project you will need to have:
 If all these requirements are met, you can run the project with:
 
 ```sh
-bb fosdem-dl-0.4.0-RC.1.jar
+bb fosdem-dl-0.1.0-RC.1.jar
 ```
 
 >[!NOTE]
