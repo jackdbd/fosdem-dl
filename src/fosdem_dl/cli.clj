@@ -4,16 +4,27 @@
   "CLI to download the talks given at FOSDEM over the years."
   (:gen-class)
   (:require
+   [clojure.string :as str]
    [fosdem-dl.talks-cli :refer [talks-cli]]
    [fosdem-dl.tracks-cli :refer [tracks-cli]]))
 
-(def available-subcommands #{"talks" "tracks"})
+(def available-commands #{"talks" "tracks"})
 
-(defn default-cli [args]
-  (let [subcommand (first args)]
-    (println (format "[ERROR] Unknown subcommand: %s" subcommand))
-    (println "Available subcommands:" (str available-subcommands))
-    {:exit-code 1}))
+(defn help
+  []
+  (let [stdout (str/trim (format "
+FOSDEM Downloader
+
+Usage: fosdem-dl <command> [options]
+Available commands: %s" (str/join ", " available-commands)))]
+    {:exit-code 0 :stdout stdout}))
+
+(defn unknown-command-cli [args]
+  (let [command (first args)
+        xs [(format "Unknown command: %s" command)
+            (format "Available commands: %s" (str/join ", " available-commands))]
+        stdout (str/join "\n" xs)]
+    {:exit-code 1 :stdout stdout}))
 
 (defn -main
   [args]
@@ -23,13 +34,18 @@
   ;; (prn "*file* is" *file*)
   ;; (prn "(System/getProperty babashka.file) is" (System/getProperty "babashka.file"))
 
-  (let [subcommand (first args)
-        result (case subcommand
+  (let [command (first args)
+        result (case command
+                 nil (help)
                  "talks" (talks-cli (rest args))
                  "tracks" (tracks-cli (rest args))
-                 (default-cli args))]
-    ;; (System/exit {:exit-code result})
-    {:exit-code result}))
+                 (unknown-command-cli args))]
+    (when-let [stdout (:stdout result)]
+      (println stdout))
+    (when-let [stderr (:sterr result)]
+      (println "ERRORS")
+      (println stderr))
+    (:exit-code result)))
 
 (comment
   (-main ["tracks" "-y" 2023])

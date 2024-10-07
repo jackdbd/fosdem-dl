@@ -130,22 +130,15 @@
   {:doc "Download com.github.jackdbd/pod-jackdbd-jsoup"
    :task (shell "./download_pod_jackdbd_jsoup.sh")}
 
-  talks
-  {:doc "fosdem-dl talks CLI (e.g. 'bb talks -y 2019 -t llvm')"
-   :task (talks-cli *command-line-args*)}
-
   test
   {:doc "Run all tests"
    :task (shell "bb test_runner.clj")}
 
   ;; https://github.com/liquidz/babashka-test-action/?tab=readme-ov-file#local-usage
   test:action
-  {:task (let [working-dir (-> (process ["pwd"] {:out :string})
+  {:doc "Run all tests in a container, using https://github.com/liquidz/babashka-test-action/"
+   :task (let [working-dir (-> (process ["pwd"] {:out :string})
                                check :out str/split-lines first)
                cmd (format "docker run --rm -v %s:/tmp -w /tmp uochan/babashka-test 'src' 'test' '_test.clj$'" working-dir)]
            (println cmd)
-           (shell cmd))}
-
-  tracks
-  {:doc "fosdem-dl tracks CLI (e.g. 'bb tracks -y 2020')"
-   :task (tracks-cli *command-line-args*)}}}
+           (shell cmd))}}}

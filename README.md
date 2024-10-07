@@ -2,11 +2,13 @@
 
 ![CI/CD](https://github.com/jackdbd/fosdem-dl/actions/workflows/ci-cd.yml/badge.svg)
 
-[babashka](https://github.com/babashka/babashka) script to download talks and attachments from the 2003-2020 [FOSDEM](https://fosdem.org/2021/) websites.
+CLI to download talks from [FOSDEM](https://fosdem.org/) websites.
 
 ![Dependency graph of all the namespaces](./resources/img/namespaces.png)
 
 ## Usage
+
+The CLI has two commands: `talks` and `tracks`.
 
 ```sh
 fosdem-dl talks --help
@@ -15,16 +17,22 @@ fosdem-dl tracks --help
 
 ## Examples
 
-Download all talks from the python track of FOSDEM 2018, in .webm format, with no attachments.
+List all tracks at FOSDEM 2020.
+
+```sh
+fosdem-dl tracks -y 2023
+```
+
+Download all videos of the FOSDEM 2018 python track, in .webm format.
 
 ```sh
 fosdem-dl talks -y 2018 -t python
 ```
 
-Download all talks of the web performance track from FOSDEM 2020, in .mp4 format, with all attachments.
+Download all videos and attachments of the FOSDEM 2020 web performance track, in .mp4 format.
 
 ```sh
-fosdem-dl -y 2020 -t web_performance -f mp4 -a
+fosdem-dl talks -y 2020 -t web_performance -f mp4 -a
 ```
 
 ## Tests
