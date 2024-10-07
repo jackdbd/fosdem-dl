@@ -19,27 +19,27 @@ Usage: fosdem-dl <command> [options]
 Available commands: %s" (str/join ", " available-commands)))]
     {:exit-code 0 :stdout stdout}))
 
-(defn unknown-command-cli [args]
-  (let [command (first args)
-        xs [(format "Unknown command: %s" command)
+(defn unknown-command-cli [command]
+  (let [xs [(format "Unknown command: %s" command)
             (format "Available commands: %s" (str/join ", " available-commands))]
         stdout (str/join "\n" xs)]
     {:exit-code 1 :stdout stdout}))
 
 (defn -main
-  [args]
+  [& _args]
 
-  ;; (println "=== args ===" args)
+  ;; (println "=== args ===" _args)
   ;; (println "=== *command-line-args* ===" *command-line-args*)
-  ;; (prn "*file* is" *file*)
+  ;; (prn "=== *file* ===" *file*)
   ;; (prn "(System/getProperty babashka.file) is" (System/getProperty "babashka.file"))
 
-  (let [command (first args)
+  (let [command (first *command-line-args*)
         result (case command
                  nil (help)
-                 "talks" (talks-cli (rest args))
-                 "tracks" (tracks-cli (rest args))
-                 (unknown-command-cli args))]
+                 "help" (help)
+                 "talks" (talks-cli (rest *command-line-args*))
+                 "tracks" (tracks-cli (rest *command-line-args*))
+                 (unknown-command-cli command))]
     (when-let [stdout (:stdout result)]
       (println stdout))
     (when-let [stderr (:sterr result)]
@@ -54,4 +54,5 @@ Available commands: %s" (str/join ", " available-commands)))]
 ;; (def schedule-page "https://fosdem.org/2021/schedule/")
 ;; (def video-page "https://video.fosdem.org/")
 
-(-main *command-line-args*)
+(when (System/getProperty "babashka.file")
+  (-main *command-line-args*))

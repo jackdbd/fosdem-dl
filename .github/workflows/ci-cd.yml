@@ -34,12 +34,18 @@ jobs:
           native-image-pr-reports: true
           version: ${{ env.GRAALVM_VERSION }}
 
-      - name: 🔧 Setup Babashka
+      - name: 🔧 Setup Clojure CLI and Babashka
         uses: DeLaGuardo/setup-clojure@12.5
         with:
+          cli: 'latest'
           bb: 'latest'
       
+      # This action uses the GitHub CLI.
+      # https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/using-github-cli-in-workflows
       - name: ⬇️ Download com.github.jackdbd/pod-jackdbd-jsoup
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          POD_JACKDBD_JSOUP_VERSION: 0.3.0
         run: ./download_pod_jackdbd_jsoup.sh
       
       - name: 🔍 Run all tests
@@ -53,6 +59,12 @@ jobs:
       #     test-paths: 'test'
       #     test-file-pattern: '_test.clj$'
 
+      - name: 📦 Build a Babashka uberjar
+        run: bb build:bb-uber
+
+      - name: 📦 Build a regular uberjar
+        run: bb build:uber
+
       - name: 📦 Compile uberjar to x86_64-linux binary with GraalVM native-image
         run: ./script/compile.sh
 
@@ -63,6 +75,9 @@ jobs:
     steps:
       - name: 🛎️ Checkout
         uses: actions/checkout@v4
+
+      - name: ⬇️ Download uberjar
+        run: echo "TODO download uberjar"
 
       - name: 🔧 Setup GraalVM
         uses: graalvm/setup-graalvm@v1

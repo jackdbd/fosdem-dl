@@ -1,0 +1,5 @@
+{
+  "resources": {
+    "includes": [{ "pattern": "pod/pod-jackdbd-jsoup" }]
+  }
+}

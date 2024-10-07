@@ -14,22 +14,31 @@
              [fosdem-dl.tracks-cli :refer [tracks-cli]]
              [tasks])
 
-  build:bb-uberjar
-  {:doc "Build the uberjar (it must be called with bb foo.jar, not java -jar foo.jar)"
+  build:bb-uber
+  {:doc "Build the Babashka uberjar (see: https://book.babashka.org/#_uberjar)"
+   :depends [clean:artifacts]
    :task (let [project (-> (edn/read-string (slurp "deps.edn")) :aliases :neil :project)
-               name (first (str/split (str (:name project)) (re-pattern "/")))
-               jar (format "target/%s-%s-standalone.jar" name (:version project))
-               cmd (format "bb uberjar %s --main fosdem-dl.fosdem-dl " jar)]
+               splits (str/split (str (:name project)) (re-pattern "/"))
+               group-id (first splits)
+               app-id (last splits)
+               jar (format "target/%s-%s.jar" app-id (:version project))
+               debug? false
+               cmd (if debug?
+                     (format "bb --debug uberjar %s --main fosdem-dl.cli " jar)
+                     (format "bb uberjar %s --main fosdem-dl.cli " jar))]
            (println cmd)
+           (println (format "Tip: it must be called with bb %s, not java -jar %s" jar jar))
            (shell cmd))}
 
   build:uber
   {:doc "Build the uberjar"
+   :depends [clean:artifacts]
    :task (clojure "-T:build uber")}
 
   build:binary
   {:doc "Compile the CLI into a statically-linked binary with GraalVM native-image (Linux only)"
-;;    :depends [build:uber]
+   ;; :depends [build:bb-uber]
+   ;; :depends [build:uber]
    :task (shell "script/compile.sh")}
 
   cp
@@ -37,11 +46,11 @@
    :task (tasks/print-classpath)}
 
   clean
-  {:doc "Remove compilation artifacts and downloads (in parallel)"
+  {:doc "Remove compilation artifacts, pods and downloads (in parallel)"
    :task (run '-clean {:parallel true})}
 
   -clean
-  {:depends [clean:artifacts clean:downloads]}
+  {:depends [clean:artifacts clean:downloads clean:pods]}
 
   clean:artifacts
   {:doc "Remove compilation artifacts"
@@ -49,7 +58,15 @@
 
   clean:downloads
   {:doc "Remove downloads"
-   :task (shell "rm -rf ./downloads")}
+   :task (let [cmd "rm -rf ./downloads"]
+           (println cmd)
+           (shell cmd))}
+
+  clean:pods
+  {:doc "Remove compilation artifacts"
+   :task (let [cmd "rm -rf ./resources/pod"]
+           (println cmd)
+           (shell cmd))}
 
   cli
   {:doc "fosdem-dl CLI (e.g. 'bb cli talks -y 2019 -t llvm', 'bb cli tracks -y 2020')"
@@ -126,8 +143,8 @@
    :doc "Generate a graph of dependencies between namespaces and copy the image to resources/img"
    :task (shell "feh resources/img/namespaces.png")}
 
-  pod:download
-  {:doc "Download com.github.jackdbd/pod-jackdbd-jsoup"
+  pod:upgrade
+  {:doc "Download the latest com.github.jackdbd/pod-jackdbd-jsoup available on GitHub Releases"
    :task (shell "./download_pod_jackdbd_jsoup.sh")}
 
   test
