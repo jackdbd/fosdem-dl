@@ -13,6 +13,7 @@ env:
   HEAP_SIZE_AT_BUILD_TIME: '-R:MaxHeapSize=1024m'
   JAVA_VERSION: 21
   OPTIMIZATION_LEVEL: '-O2'
+  POD_JACKDBD_JSOUP_VERSION: 0.4.0-RC.1
 
 jobs:
   set-shared-outputs:
@@ -69,7 +70,6 @@ jobs:
       - name: ⬇️ Download com.github.jackdbd/pod-jackdbd-jsoup
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          POD_JACKDBD_JSOUP_VERSION: 0.3.0
         run: ./download_pod_jackdbd_jsoup.sh
 
       - name: ⬆️ Upload pod-jackdbd-jsoup
@@ -137,7 +137,6 @@ jobs:
       - name: ⬇️ Download com.github.jackdbd/pod-jackdbd-jsoup
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          POD_JACKDBD_JSOUP_VERSION: 0.3.0
         run: ./download_pod_jackdbd_jsoup.sh
       
       - name: 🔍 Run all tests

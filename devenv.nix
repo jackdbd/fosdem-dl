@@ -13,7 +13,7 @@
   env = {
     GH_TOKEN = builtins.readFile "/run/secrets/github-tokens/semantic_release_bot";
     GREET = "devenv";
-    POD_JACKDBD_JSOUP_VERSION = "0.3.0";
+    POD_JACKDBD_JSOUP_VERSION = "0.4.0-RC.1";
   };
 
   languages = {

@@ -6,7 +6,7 @@ set -euo pipefail
 POD_ID=pod.jackdbd.jsoup
 POD_NAME=pod-jackdbd-jsoup
 POD_VERSION=$POD_JACKDBD_JSOUP_VERSION
-ARCH=x86_64
+ARCH=amd64
 OS=ubuntu-latest
 
 echo "Download assets published on GitHub release"

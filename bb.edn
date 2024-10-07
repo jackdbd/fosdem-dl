@@ -3,7 +3,7 @@
  :paths ["bb" "src" "resources"]
  :pods {com.github.jackdbd/pod-jackdbd-jsoup {:path "./resources/pod/pod-jackdbd-jsoup"}
         ;; com.github.jackdbd/pod-jackdbd-jsoup {:path "./resources/pod/pod-jackdbd-jsoup-0.2.1"}
-        ;; com.github.jackdbd/pod-jackdbd-jsoup {:version "0.3.0"}
+        ;; com.github.jackdbd/pod-jackdbd-jsoup {:version "0.4.0-RC.1"}
         }
 
  :tasks
