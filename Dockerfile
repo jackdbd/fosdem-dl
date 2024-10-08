@@ -17,10 +17,10 @@ RUN if [ -z "${ARTIFACT_VERSION}" ] ; then echo "ARTIFACT_VERSION not set!" ; ex
 ARG ARTIFACT_NAME
 RUN if [ -z "${ARTIFACT_NAME}" ] ; then echo "ARTIFACT_NAME not set!" ; exit 1; fi
 
-ARG JSOUP_POD_PATH="resources/pod/pod-jackdbd-jsoup"
-
-ARG DEBUG_BB_UBERJAR
-RUN echo "DEBUG_BB_UBERJAR is $DEBUG_BB_UBERJAR"
+# If you need to use a version of pod-jackdbd-jsoup not available on the pod
+# registry, you will need to download it and place it where bb.edn declares it
+# (it would be {:pods {some-pod {:path "some-path"}}}). 
+# ARG JSOUP_POD_PATH="resources/pod/pod-jackdbd-jsoup"
 
 # https://github.com/babashka/babashka/releases
 ARG BB_VERSION="1.4.192"
@@ -41,7 +41,7 @@ COPY deps.edn ${APP_DIR}/
 COPY bb.edn ${APP_DIR}/
 COPY build.clj ${APP_DIR}/
 COPY bb ${APP_DIR}/bb
-COPY ${JSOUP_POD_PATH} ${APP_DIR}/${JSOUP_POD_PATH}
+# COPY ${JSOUP_POD_PATH} ${APP_DIR}/${JSOUP_POD_PATH}
 COPY src ${APP_DIR}/src
 
 RUN bb run build:bb-uber
@@ -59,7 +59,8 @@ RUN groupadd --gid 1234 $NON_ROOT_USER && \
     useradd --uid 1234 --gid 1234 --shell /bin/bash --create-home $NON_ROOT_USER
 
 ARG APP_DIR=/usr/src/app
-ARG JSOUP_POD_VERSION=0.4.0
+ARG JSOUP_POD_VERSION
+RUN if [ -z "${JSOUP_POD_VERSION}" ] ; then echo "JSOUP_POD_VERSION not set!" ; exit 1; fi
 
 USER $NON_ROOT_USER
 WORKDIR "/home/$NON_ROOT_USER"
@@ -68,27 +69,29 @@ COPY --from=bb-uberjar-builder "${APP_DIR}/fosdem-dl.jar" fosdem-dl.jar
 
 # Babashka downloads pods to $HOME/.babashka/pods/repository, but in my bb.edn
 # I declared that this pod is at resources/pod/pod-jackdbd-jsoup
-ARG JSOUP_POD_PATH="resources/pod/pod-jackdbd-jsoup"
-ARG JSOUP_POD_BB_PATH="/home/${NON_ROOT_USER}/.babashka/pods/repository/com.github.jackdbd/pod.jackdbd.jsoup/$JSOUP_POD_VERSION/linux/x86_64/pod-jackdbd-jsoup"
+# ARG JSOUP_POD_PATH="resources/pod/pod-jackdbd-jsoup"
+# ARG JSOUP_POD_BB_PATH="/home/${NON_ROOT_USER}/.babashka/pods/repository/com.github.jackdbd/pod.jackdbd.jsoup/$JSOUP_POD_VERSION/linux/x86_64/pod-jackdbd-jsoup"
 
-# We can either copy a local version of the pod...
+# We can either copy the pod from the previous stage...
 # COPY --from=bb-uberjar-builder "${APP_DIR}/${JSOUP_POD_PATH}" "${JSOUP_POD_PATH}"
-#...or let Babashka download it from the pod registry
+#...or let Babashka download it from the pod registry (if it's available there).
+RUN bb -e "(require '[babashka.pods :as pods]) \
+(pods/load-pod 'com.github.jackdbd/jsoup \"${JSOUP_POD_VERSION}\")"
 
-# I need to move the pod to the path declared in my bb.edn. If I specify
-# :version instead of :path in my bb.edn file, I guess I can leave the pod at
-# the location where Babashka downloads it. Another option would be to set the
-# BABASHKA_PODS_DIR environment variable I think.
+# This mess is required only when the pod is not available on the pod registry
+# and in bb.edn it is declared with :path instead of :version.
+# An alternative to this mess would be to set the BABASHKA_PODS_DIR environment
+# variable, I think.
 # https://github.com/babashka/pods?tab=readme-ov-file#where-does-the-pod-come-from
 # NOTE: I use a single RUN instruction to save one layer in the container image.
 # We could download the pod with one RUN instruction and then move it with
 # another one, but this would create an additional layer of roughly 26 MB.
 # TIP: You can use dive to inspect the layers of the container image.
-RUN bb -e "(require '[babashka.pods :as pods]) \
-(pods/load-pod 'com.github.jackdbd/jsoup \"${JSOUP_POD_VERSION}\")" && \
-    mkdir -p $(dirname $JSOUP_POD_PATH) && \
-    mv $JSOUP_POD_BB_PATH $JSOUP_POD_PATH && \
-    rm -rf "/home/${NON_ROOT_USER}/.babashka"
+# RUN bb -e "(require '[babashka.pods :as pods]) \
+# (pods/load-pod 'com.github.jackdbd/jsoup \"${JSOUP_POD_VERSION}\")" && \
+#     mkdir -p $(dirname $JSOUP_POD_PATH) && \
+#     mv $JSOUP_POD_BB_PATH $JSOUP_POD_PATH && \
+#     rm -rf "/home/${NON_ROOT_USER}/.babashka"
 
 ENTRYPOINT ["bb", "fosdem-dl.jar"]
 CMD ["help"]

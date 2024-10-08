@@ -109,7 +109,7 @@ jobs:
 
   container-image:
     name: Container image
-    needs: [shared-outputs, uberjar]
+    needs: [shared-outputs]
     runs-on: ubuntu-latest
 
     steps:
@@ -121,11 +121,6 @@ jobs:
         with:
           cli: 'latest'
           bb: 'latest'
-
-      # - name: ⬇️ Download Babashka uberjar
-      #   uses: actions/download-artifact@v4
-      #   with:
-      #     name: bb-uberjar
 
       - name: 🐋 Build container image
         run: bb container:build
