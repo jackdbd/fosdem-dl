@@ -1,28 +1,10 @@
 {
-  // Calva (Clojure development)
-  // General settings: https://calva.io/customizing/
-  // https://calva.io/paredit/#about-the-keyboard-shortcuts
-  // "calva.paredit.defaultKeyMap": "none",
-
-  // Jack-in connect sequences: https://calva.io/connect-sequences/
-  "calva.replConnectSequences": [
-    {
-      "name": "Portal Connect",
-      "projectType": "deps.edn",
-      "cljsType": "none",
-      "menuSelections": {
-        "cljAliases": ["dev"]
-      }
-    }
-  ],
-  "calva.showCalvaSaysOnStart": false,
-  "calva.showDocstringInParameterHelp": true,
-
   // hide these folders from the VS Code side panel (explorer)
   "files.exclude": {
-    ".calva/": false,
+    ".babashka/": true,
+    ".calva/": true,
     ".clj-kondo/": true,
-    ".cpcache/": false,
+    ".cpcache/": true,
     ".lsp/": true
   },
 

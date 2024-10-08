@@ -2,8 +2,7 @@
   (:require
    [babashka.pods :as pods]
    [cheshire.core :as json]
-   [clojure.string :as str]
-   [pod.jackdbd.jsoup :as jsoup]))
+   [clojure.string :as str]))
 
 (def pod-id "pod.jackdbd.jsoup")
 (def pod-name "pod-jackdbd-jsoup")
@@ -25,15 +24,12 @@
                         "</body>"
                         "</html>"]))
 
-
-
-
 (comment
   ;; Evaluate one of the following two lines in a Babashka REPL
   (pods/load-pod ["java" "-jar" uber-file])
   (pods/load-pod exe-file)
 
-  ;; (require '[pod.jackdbd.jsoup :as jsoup])
+  (require '[pod.jackdbd.jsoup :as jsoup])
 
   (jsoup/select html "div.foo")
 

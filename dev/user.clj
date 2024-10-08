@@ -8,14 +8,21 @@
                                jsoup-node-element->href
                                maybe-video-url]]
    [fosdem-dl.talks-cli :refer [talks-cli]]
-   [fosdem-dl.tracks-cli :refer [tracks-cli]]
-   [pod.jackdbd.jsoup :as jsoup]))
+   [fosdem-dl.tracks-cli :refer [tracks-cli]]))
 
 (comment
   (def url "https://archive.fosdem.org/2020/schedule/event/seccomp/")
   (def timeout 10000)
   (def response (http/get url {:as :stream :throw false :timeout timeout}))
   (def html (slurp (:body response)))
+
+  (require '[babashka.pods :as pods])
+  (pods/load-pod "pod-jackdbd-jsoup")
+  ;; (pods/load-pod "pod-babashka-hsqldb")
+  ;; (pods/load-pod ["java" "-jar" uber-file])
+  ;; (pods/load-pod exe-file)
+
+  (require '[pod.jackdbd.jsoup :as jsoup])
 
   (jsoup/select html "div")
   (jsoup/select html "video>source")
