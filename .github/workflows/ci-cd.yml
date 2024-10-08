@@ -16,8 +16,8 @@ env:
   POD_JACKDBD_JSOUP_VERSION: 0.4.0-RC.1
 
 jobs:
-  set-shared-outputs:
-    name: Set shared outputs
+  shared-outputs:
+    name: Shared outputs
     runs-on: ubuntu-latest
 
     env:
@@ -47,13 +47,13 @@ jobs:
           echo "app_version is ${{ steps.set_outputs.outputs.app_version }}"
           echo "is_prerelease is ${{ steps.set_outputs.outputs.is_prerelease }}"
 
-  build-uberjar:
-    name: Build uberjar (Babashka & normal)
-    needs: [set-shared-outputs]
+  uberjar:
+    name: Uberjar
+    needs: [shared-outputs]
     runs-on: ubuntu-latest
   
     env:
-      APP_VERSION: ${{ needs.set-shared-outputs.outputs.app_version }}
+      APP_VERSION: ${{ needs.shared-outputs.outputs.app_version }}
   
     steps:
       - name: 🛎️ Checkout
@@ -77,6 +77,7 @@ jobs:
         with:
           name: pod-jackdbd-jsoup
           path: resources/pod/pod-jackdbd-jsoup
+          if-no-files-found: error
 
       - name: 📦 Build a Babashka uberjar
         run: bb build:bb-uber
@@ -92,6 +93,7 @@ jobs:
         with:
           name: bb-uberjar
           path: target/${{ env.APP_ID }}-${{ env.APP_VERSION }}.jar
+          if-no-files-found: error
 
       - name: 📦 Build normal uberjar
         run: |
@@ -103,14 +105,44 @@ jobs:
         with:
           name: uberjar
           path: target/${{ env.APP_ID }}-${{ env.APP_VERSION }}-standalone.jar
+          if-no-files-found: error
+
+  container-image:
+    name: Container image
+    needs: [shared-outputs, uberjar]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 🛎️ Checkout
+        uses: actions/checkout@v4
+
+      - name: 🔧 Setup Clojure CLI and Babashka
+        uses: DeLaGuardo/setup-clojure@12.5
+        with:
+          cli: 'latest'
+          bb: 'latest'
+
+      # - name: ⬇️ Download Babashka uberjar
+      #   uses: actions/download-artifact@v4
+      #   with:
+      #     name: bb-uberjar
+
+      - name: 🐋 Build container image
+        run: bb container:build
+
+      - name: 🐋 Run container
+        run: |
+          bb container:cli help
+          bb container:cli talks --help
+          bb container:cli tracks --help
 
   linux-binary:
-    name: Compile Linux binary
-    needs: [set-shared-outputs, build-uberjar, create-github-release]
+    name: Linux binary
+    needs: [shared-outputs, uberjar, create-github-release]
     runs-on: ubuntu-latest
 
     env:
-      APP_VERSION: ${{ needs.set-shared-outputs.outputs.app_version }}
+      APP_VERSION: ${{ needs.shared-outputs.outputs.app_version }}
 
     steps:
       - name: 🛎️ Checkout
@@ -164,12 +196,12 @@ jobs:
         run: ./script/compile.sh
 
   macos-binary:
-    name: Compile macOS binary
-    needs: [set-shared-outputs, build-uberjar, create-github-release]
+    name: macOS binary
+    needs: [shared-outputs, uberjar, create-github-release]
     runs-on: macos-latest
 
     env:
-      APP_VERSION: ${{ needs.set-shared-outputs.outputs.app_version }}
+      APP_VERSION: ${{ needs.shared-outputs.outputs.app_version }}
 
     steps:
       - name: 🛎️ Checkout
@@ -213,12 +245,12 @@ jobs:
   create-github-release:
     name: Create GitHub release
     if: ${{ github.event_name != 'pull_request' }}
-    needs: [set-shared-outputs, build-uberjar]
+    needs: [shared-outputs, uberjar]
     runs-on: ubuntu-latest
     
     env:
-      APP_VERSION: ${{ needs.set-shared-outputs.outputs.app_version }}
-      IS_PRERELEASE: ${{ needs.set-shared-outputs.outputs.is_prerelease }}
+      APP_VERSION: ${{ needs.shared-outputs.outputs.app_version }}
+      IS_PRERELEASE: ${{ needs.shared-outputs.outputs.is_prerelease }}
 
     permissions:
       contents: write

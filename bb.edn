@@ -23,7 +23,7 @@
                app-id (last splits)
                jar (format "target/%s-%s.jar" app-id (:version project))
                debug? false
-               cmd (if debug?
+               cmd (if (= "true" (System/getenv "DEBUG_BB_UBERJAR"))
                      (format "bb --debug uberjar %s --main fosdem-dl.cli " jar)
                      (format "bb uberjar %s --main fosdem-dl.cli " jar))]
            (println cmd)
@@ -90,45 +90,48 @@
   {:doc "Upgrade all dependencies"
    :task (shell "neil dep upgrade")}
 
-  dk:build
-  {:doc "Build the container image that builds the uberjar and the GraalVM native image"
+  container:build
+  {:doc "Build the container image"
    :task (let [project (-> (edn/read-string (slurp "deps.edn")) :aliases :neil :project)
-               name (first (str/split (str (:name project)) (re-pattern "/")))
-               version (:version project)
+               splits (str/split (str (:name project)) (re-pattern "/"))
+               group-id (first splits)
+               artifact-name (last splits)
+               artifact-version (:version project)
+               image-tag (str artifact-name ":" artifact-version)
                options ["--file" "Dockerfile"
-                        "--build-arg" (str "APP_NAME=" name)
-                        "--build-arg" (str "APP_VERSION=" version)
+                        "--build-arg" (str "ARTIFACT_NAME=" artifact-name)
+                        "--build-arg" (str "ARTIFACT_VERSION=" artifact-version)
+                        "--build-arg" "DEBUG_BB_UBERJAR=true"
+                        "--debug"
                         #_"--quiet"
-                        "--tag" (str name ":" version)]
+                        "--tag" image-tag]
                cmd (format "docker build ./ %s" (str/join " " options))]
-           (shell cmd))}
-  dk:cp
-  {:doc "Copy the build artifacts (jar, native image) from the Docker container"
-   :depends [dk:build]
-   :task (let [project (-> (edn/read-string (slurp "deps.edn")) :aliases :neil :project)
-               image-name (first (str/split (str (:name project)) (re-pattern "/")))
-               image-tag (:version project)
-               image (str image-name ":" image-tag)
-               working-dir (-> (process ["pwd"] {:out :string})
-                               check :out str/split-lines first)
-               container-id (-> (process ["docker" "create" image] {:out :string})
-                                check :out str/split-lines first)
-               cmd (format "docker cp %s:/app %s/output" container-id working-dir)]
            (println cmd)
            (shell cmd))}
 
-  dk:run
+  container:cli
   {:doc "Execute the fosdem-dl CLI in a Docker container"
-;;    :depends [dk:cp]
+;;    :depends [container:build]
    :task (let [project (-> (edn/read-string (slurp "deps.edn")) :aliases :neil :project)
-               image-name (first (str/split (str (:name project)) (re-pattern "/")))
-               image-tag (:version project)
-               image (str image-name ":" image-tag)
-               ;; https://www.graalvm.org/22.0/reference-manual/native-image/MemoryManagement/#printing-garbage-collections
-               gc-options "-XX:+PrintGC -XX:+VerboseGC"
-               args "--help"
-            ;;    args "--year 2020 --track web_performance --format webm"
-               cmd (format "docker run -it --rm %s fosdem-dl %s %s" image gc-options args)]
+               splits (str/split (str (:name project)) (re-pattern "/"))
+               group-id (first splits)
+               artifact-name (last splits)
+               artifact-version (:version project)
+               image-tag (str artifact-name ":" artifact-version)
+               cmd (str/join " " (concat [(format "docker run --rm %s" image-tag)] *command-line-args*))]
+           (println cmd)
+           (shell cmd))}
+
+  container:dive
+  {:doc "Inspect the container image layers with dive"
+    ;; :depends [container:build]
+   :task (let [project (-> (edn/read-string (slurp "deps.edn")) :aliases :neil :project)
+               splits (str/split (str (:name project)) (re-pattern "/"))
+               group-id (first splits)
+               artifact-name (last splits)
+               artifact-version (:version project)
+               tag (str artifact-name ":" artifact-version)
+               cmd (format "dive %s" tag)]
            (println cmd)
            (shell cmd))}
 

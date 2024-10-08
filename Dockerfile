@@ -1,106 +1,96 @@
 # === STAGE 1 ================================================================ #
 # Build the uberjar
 # ============================================================================ #
-# https://hub.docker.com/_/clojure
-FROM clojure:tools-deps-1.11.1.1189-jammy AS uberjar-builder
+# Use this command to list all available tags for the container image:
+# skopeo list-tags docker://docker.io/clojure
+FROM docker.io/library/clojure:temurin-23-tools-deps-1.12.0.1479-bullseye-slim AS bb-uberjar-builder
 
 ARG APP_DIR=/usr/src/app
-RUN if [ -z "${APP_DIR}" ] ; then echo "The APP_DIR argument is missing!" ; exit 1; fi
+RUN if [ -z "${APP_DIR}" ] ; then echo "APP_DIR not set!" ; exit 1; fi
 
-ARG APP_NAME
-RUN if [ -z "${APP_NAME}" ] ; then echo "The APP_NAME argument is missing!" ; exit 1; fi
+ARG ARTIFACT_NAME
+RUN if [ -z "${ARTIFACT_NAME}" ] ; then echo "ARTIFACT_NAME not set!" ; exit 1; fi
 
-ARG APP_VERSION
-RUN if [ -z "${APP_VERSION}" ] ; then echo "The APP_VERSION argument is missing!" ; exit 1; fi
+ARG ARTIFACT_VERSION
+RUN if [ -z "${ARTIFACT_VERSION}" ] ; then echo "ARTIFACT_VERSION not set!" ; exit 1; fi
+
+ARG ARTIFACT_NAME
+RUN if [ -z "${ARTIFACT_NAME}" ] ; then echo "ARTIFACT_NAME not set!" ; exit 1; fi
+
+ARG JSOUP_POD_PATH="resources/pod/pod-jackdbd-jsoup"
+
+ARG DEBUG_BB_UBERJAR
+RUN echo "DEBUG_BB_UBERJAR is $DEBUG_BB_UBERJAR"
+
+# https://github.com/babashka/babashka/releases
+ARG BB_VERSION="1.4.192"
+
+RUN apt update
+RUN apt install wget
+RUN wget --directory-prefix /tmp "https://github.com/babashka/babashka/releases/download/v${BB_VERSION}/babashka-${BB_VERSION}-linux-amd64-static.tar.gz"
+RUN tar xf "/tmp/babashka-${BB_VERSION}-linux-amd64-static.tar.gz" --directory=/tmp
+RUN mv /tmp/bb /usr/local/bin/bb
 
 RUN mkdir -p ${APP_DIR}
-
 WORKDIR ${APP_DIR}
 
 # I think that resources (i.e. assets) and source code change frequently, while
 # build scripts and dependencies change less frequently. That's why I decided
 # to define the docker layers in this order.
-COPY build.clj ${APP_DIR}/
 COPY deps.edn ${APP_DIR}/
-COPY resources ${APP_DIR}/resources
+COPY bb.edn ${APP_DIR}/
+COPY build.clj ${APP_DIR}/
+COPY bb ${APP_DIR}/bb
+COPY ${JSOUP_POD_PATH} ${APP_DIR}/${JSOUP_POD_PATH}
 COPY src ${APP_DIR}/src
 
-RUN clojure -T:build uber
+RUN bb run build:bb-uber
+RUN mv target/${ARTIFACT_NAME}-${ARTIFACT_VERSION}.jar "${ARTIFACT_NAME}.jar"
 
 # === STAGE 2 ================================================================ #
-# Copy the uberjar built at stage 1 and build a GraalVM native image
+# Run the uberjar
 # ============================================================================ #
-# GraalVM Community Edition images based on Oracle Linux 9
-# https://github.com/graalvm/container
-# ghcr.io/graalvm/$IMAGE_NAME[:][$os_version][-$java_version][-$version][-$build_number]
-# Tip: you can use this command to list all tags available for a container image:
-# skopeo list-tags docker://ghcr.io/graalvm/native-image
+# Use this command to list all available tags for the container image:
+# skopeo list-tags docker://docker.io/babashka/babashka
+FROM docker.io/babashka/babashka:1.4.193-SNAPSHOT AS bb-uberjar-runner
 
-# FROM ghcr.io/graalvm/native-image:ol9-java17-22.3.0-b1 as native-image-builder
-FROM ghcr.io/graalvm/native-image:muslib-ol9-java17-22.3.0-b1 as native-image-builder
+ARG NON_ROOT_USER=zaraki
+RUN groupadd --gid 1234 $NON_ROOT_USER && \
+    useradd --uid 1234 --gid 1234 --shell /bin/bash --create-home $NON_ROOT_USER
 
-# Each ARG goes out of scope at the end of the build stage where it was
-# defined. That's why we have to repeat it here in this stage.
-# To use an arg in multiple stages, EACH STAGE must include the ARG instruction.
-# https://docs.docker.com/engine/reference/builder/#scope
-# We also need to re-initialize EACH ARG to its default value (if it has one).
 ARG APP_DIR=/usr/src/app
-ARG APP_NAME
-ARG APP_VERSION
-ARG JAR_FILE="${APP_DIR}/target/${APP_NAME}-${APP_VERSION}-standalone.jar"
+ARG JSOUP_POD_VERSION=0.4.0
 
-# I think cross-compiling the GraalVM native image requires downloading the C
-# library for that OS-architecture and place it here:
-# RUN ls /usr/lib64/graalvm/graalvm22-ce-java17/lib/svm/clibraries
-# See also how Babashka does it:
-# https://github.com/babashka/babashka/blob/master/.github/workflows/build.yml
-ARG TARGET="linux-amd64"
+USER $NON_ROOT_USER
+WORKDIR "/home/$NON_ROOT_USER"
 
-# In the GraalVM Community Edition, only the Serial GC is available.
-# https://www.graalvm.org/22.0/reference-manual/native-image/MemoryManagement/
-# If no maximum Java heap size is specified, a native image that uses the Serial
-# GC will set its maximum Java heap size to 80% of the physical memory size.
-# https://www.graalvm.org/22.0/reference-manual/native-image/MemoryManagement/#java-heap-size
-ARG JVM_MAX_HEAP_SIZE="-Xmx4500m"
+COPY --from=bb-uberjar-builder "${APP_DIR}/fosdem-dl.jar" fosdem-dl.jar
 
-WORKDIR /app
+# Babashka downloads pods to $HOME/.babashka/pods/repository, but in my bb.edn
+# I declared that this pod is at resources/pod/pod-jackdbd-jsoup
+ARG JSOUP_POD_PATH="resources/pod/pod-jackdbd-jsoup"
+ARG JSOUP_POD_BB_PATH="/home/${NON_ROOT_USER}/.babashka/pods/repository/com.github.jackdbd/pod.jackdbd.jsoup/$JSOUP_POD_VERSION/linux/x86_64/pod-jackdbd-jsoup"
 
-COPY --from=uberjar-builder "${JAR_FILE}" "${APP_NAME}.jar"
+# We can either copy a local version of the pod...
+# COPY --from=bb-uberjar-builder "${APP_DIR}/${JSOUP_POD_PATH}" "${JSOUP_POD_PATH}"
+#...or let Babashka download it from the pod registry
 
-# useful docs for GraalVM native-image flags
-# https://docs.spring.io/spring-native/docs/current/reference/htmlsingle/#native-image-options-useful
+# I need to move the pod to the path declared in my bb.edn. If I specify
+# :version instead of :path in my bb.edn file, I guess I can leave the pod at
+# the location where Babashka downloads it. Another option would be to set the
+# BABASHKA_PODS_DIR environment variable I think.
+# https://github.com/babashka/pods?tab=readme-ov-file#where-does-the-pod-come-from
+# NOTE: I use a single RUN instruction to save one layer in the container image.
+# We could download the pod with one RUN instruction and then move it with
+# another one, but this would create an additional layer of roughly 26 MB.
+# TIP: You can use dive to inspect the layers of the container image.
+RUN bb -e "(require '[babashka.pods :as pods]) \
+(pods/load-pod 'com.github.jackdbd/jsoup \"${JSOUP_POD_VERSION}\")" && \
+    mkdir -p $(dirname $JSOUP_POD_PATH) && \
+    mv $JSOUP_POD_BB_PATH $JSOUP_POD_PATH && \
+    rm -rf "/home/${NON_ROOT_USER}/.babashka"
 
-# RUN native-image -jar "${APP_NAME}.jar" \
-#   -H:Name="${APP_NAME}" \
-#   -H:+ReportExceptionStackTraces \
-#   -H:ReportAnalysisForbiddenType=java.awt.Toolkit:InHeap,Allocated \
-#   --diagnostics-mode \
-#   --native-image-info \
-#   --initialize-at-build-time \
-#   --report-unsupported-elements-at-runtime \
-#   --no-fallback \
-#   --gc=serial \
-#   -H:+StaticExecutableWithDynamicLibC \
-#   --libc=glibc \
-#   "--target=${TARGET}" \
-#   --verbose \
-#   "-J${JVM_MAX_HEAP_SIZE}"
-
-# use this when using a musl-based image
-RUN native-image -jar "${APP_NAME}.jar" \
-  -H:Name="${APP_NAME}" \
-  -H:+ReportExceptionStackTraces \
-  -H:ReportAnalysisForbiddenType=java.awt.Toolkit:InHeap,Allocated \
-  --diagnostics-mode \
-  --native-image-info \
-  --initialize-at-build-time \
-  --report-unsupported-elements-at-runtime \
-  --no-fallback \
-  --gc=serial \
-  --static \
-  --libc=musl \
-  "--target=${TARGET}" \
-  --verbose \
-  "-J${JVM_MAX_HEAP_SIZE}"
-
-ENTRYPOINT [ "./fosdem-dl" ]
+ENTRYPOINT ["bb", "fosdem-dl.jar"]
+CMD ["help"]
+# CMD ["talks", "--help"]
+# CMD ["tracks", "--help"]

@@ -11,8 +11,8 @@
   '';
 
   env = {
+    DEBUG_BB_UBERJAR = "true";
     GH_TOKEN = builtins.readFile "/run/secrets/github-tokens/semantic_release_bot";
-    GREET = "devenv";
     POD_JACKDBD_JSOUP_VERSION = "0.4.0-RC.1";
   };
 
@@ -23,6 +23,7 @@
 
   packages = with pkgs; [
     babashka # Clojure interpreter for scripting
+    dive # tool for exploring layers in a container image
     git
 
     # musl is required by GraalVM native-image when compiling a statically
@@ -60,6 +61,7 @@
     versions.exec = ''
       echo "=== Versions ==="
       bb --version
+      dive --version
       dot --version
       git --version
       java --version

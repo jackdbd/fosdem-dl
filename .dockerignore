@@ -1,3 +1,4 @@
+.babashka/
 .calva/
 .clj-kondo/
 .cpcache/
@@ -5,10 +6,14 @@
 .lsp/
 .portal/
 .vscode/
+dev/
 downloads/
 target/
 test/
-
+.devenv.flake.nix
 .envrc
 .nrepl-port
-bb.edn
+.pre-commit-config.yaml
+devenv.lock
+devenv.yaml
+test_runner.clj
