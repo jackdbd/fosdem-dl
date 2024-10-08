@@ -8,44 +8,57 @@ on:
       - main
 
 env:
-  APP_ID: fosdem-dl
+  BINARY_NAME: fosdem-dl
   GRAALVM_VERSION: 23.0.0
   HEAP_SIZE_AT_BUILD_TIME: '-R:MaxHeapSize=1024m'
   JAVA_VERSION: 21
   OPTIMIZATION_LEVEL: '-O2'
-  POD_JACKDBD_JSOUP_VERSION: 0.4.0-RC.1
+  UBERJAR_NAME: fosdem-dl
 
 jobs:
   shared-outputs:
     name: Shared outputs
     runs-on: ubuntu-latest
 
-    env:
-      # Note: we can't run Babashka commands until we have downloaded the pod
-      # and moved it to the location specified in bb.edn.
-      # APP_VERSION=$(bb -e '(-> (slurp "deps.edn") edn/read-string :aliases :neil :project :version)' | tr -d '"')
-      APP_VERSION: 0.1.0-RC.1
+    # env:
+      # POD_JACKDBD_JSOUP_VERSION: 0.4.0
+      # VERSION: 0.1.0-RC.1
   
     outputs:
-      app_version: ${{ steps.set_outputs.outputs.app_version }}
       is_prerelease: ${{ steps.set_outputs.outputs.is_prerelease }}
+      version: ${{ steps.set_outputs.outputs.version }}
       
     steps:
+      - name: 🛎️ Checkout
+        uses: actions/checkout@v4
+
+      - name: 🔧 Setup Babashka
+        uses: DeLaGuardo/setup-clojure@12.5
+        with:
+          bb: 'latest'
+
+      # Note: if in bb.edn we declare a version of a pod using :path instead of
+      # :version (e.g. we have to do this when the pod is not registered on the
+      # pod registry), we can't run Babashka commands until we have downloaded
+      # that pod manually and moved it to the :path specified in bb.edn.
       - name: Set job outputs
         id: set_outputs
         run: |
-          echo "app_version=$APP_VERSION" >> $GITHUB_OUTPUT
-
           if [ "${{ github.ref }}" == "refs/heads/main" ]; then
             echo "is_prerelease=false" >> $GITHUB_OUTPUT
           else
             echo "is_prerelease=true" >> $GITHUB_OUTPUT
           fi
 
+          VERSION=$(bb -e '(-> (slurp "deps.edn") edn/read-string :aliases :neil :project :version)' | tr -d '"')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
       - name: Log job outputs
         run: |
-          echo "app_version is ${{ steps.set_outputs.outputs.app_version }}"
           echo "is_prerelease is ${{ steps.set_outputs.outputs.is_prerelease }}"
+          # echo "pod_jackdbd_jsoup_path_linux is ${{ steps.set_outputs.outputs.pod_jackdbd_jsoup_path_linux }}"
+          # echo "pod_jackdbd_jsoup_path_macos is ${{ steps.set_outputs.outputs.pod_jackdbd_jsoup_path_macos }}"
+          echo "version is ${{ steps.set_outputs.outputs.version }}"
 
   uberjar:
     name: Uberjar
@@ -53,7 +66,7 @@ jobs:
     runs-on: ubuntu-latest
   
     env:
-      APP_VERSION: ${{ needs.shared-outputs.outputs.app_version }}
+      VERSION: ${{ needs.shared-outputs.outputs.version }}
   
     steps:
       - name: 🛎️ Checkout
@@ -64,35 +77,34 @@ jobs:
         with:
           cli: 'latest'
           bb: 'latest'
-      
+
+      # Downloading the pod manually is only necessary if in bb.edn we declare
+      # the pod with :path instead of :version (e.g. when we want a version of
+      # the pod that is not registered on pod registry).
       # This action uses the GitHub CLI.
       # https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/using-github-cli-in-workflows
-      - name: ⬇️ Download com.github.jackdbd/pod-jackdbd-jsoup
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: ./download_pod_jackdbd_jsoup.sh
-
-      - name: ⬆️ Upload pod-jackdbd-jsoup
-        uses: actions/upload-artifact@v4
-        with:
-          name: pod-jackdbd-jsoup
-          path: resources/pod/pod-jackdbd-jsoup
-          if-no-files-found: error
+      # - name: ⬇️ Download com.github.jackdbd/pod-jackdbd-jsoup
+      #   env:
+      #     GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #   run: ./download_pod_jackdbd_jsoup.sh
 
       - name: 📦 Build a Babashka uberjar
         run: bb build:bb-uber
 
+      # Troubleshooting: Babashka pods should be somewhere here.
+      # - run: ls -1 -R ~/.babashka
+
       - name: "CLI talks --help"
-        run: bb target/${{env.APP_ID }}-${{ env.APP_VERSION }}.jar talks --help
+        run: bb target/${{env.UBERJAR_NAME }}-${{ env.VERSION }}.jar talks --help
   
       - name: "CLI tracks --help"
-        run: bb target/${{env.APP_ID }}-${{ env.APP_VERSION }}.jar tracks --help
+        run: bb target/${{env.UBERJAR_NAME }}-${{ env.VERSION }}.jar tracks --help
 
       - name: ⬆️ Upload Babashka uberjar
         uses: actions/upload-artifact@v4
         with:
           name: bb-uberjar
-          path: target/${{ env.APP_ID }}-${{ env.APP_VERSION }}.jar
+          path: target/${{ env.UBERJAR_NAME }}-${{ env.VERSION }}.jar
           if-no-files-found: error
 
       - name: 📦 Build normal uberjar
@@ -104,8 +116,33 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: uberjar
-          path: target/${{ env.APP_ID }}-${{ env.APP_VERSION }}-standalone.jar
+          path: target/${{ env.UBERJAR_NAME }}-${{ env.VERSION }}-standalone.jar
           if-no-files-found: error
+
+  test:
+    name: Test
+    needs: []
+    runs-on: ubuntu-latest
+  
+    steps:
+      - name: 🛎️ Checkout
+        uses: actions/checkout@v4
+
+      - name: 🔧 Setup Babashka
+        uses: DeLaGuardo/setup-clojure@12.5
+        with:
+          bb: 'latest'
+
+      - name: 🔍 Run all tests
+        run: bb test_runner.clj
+    
+      # https://github.com/liquidz/babashka-test-action/
+      # - name: Run babashka-test-action
+      #   uses: liquidz/babashka-test-action@v1
+      #   with:
+      #     source-paths: 'src'
+      #     test-paths: 'test'
+      #     test-file-pattern: '_test.clj$'
 
   container-image:
     name: Container image
@@ -125,19 +162,18 @@ jobs:
       - name: 🐋 Build container image
         run: bb container:build
 
-      - name: 🐋 Run container
-        run: |
-          bb container:cli help
-          bb container:cli talks --help
-          bb container:cli tracks --help
+      # Print a few commands to double check that the CLI is working as expected
+      - run: bb container:cli help
+      - run: bb container:cli talks --help
+      - run: bb container:cli tracks --help
 
-  linux-binary:
-    name: Linux binary
-    needs: [shared-outputs, uberjar, create-github-release]
+  linux-amd64-binary:
+    name: Linux amd64 binary
+    needs: [shared-outputs]
     runs-on: ubuntu-latest
 
     env:
-      APP_VERSION: ${{ needs.shared-outputs.outputs.app_version }}
+      VERSION: ${{ needs.shared-outputs.outputs.version }}
 
     steps:
       - name: 🛎️ Checkout
@@ -158,45 +194,32 @@ jobs:
         with:
           cli: 'latest'
           bb: 'latest'
-      
-      # This action uses the GitHub CLI.
-      # https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/using-github-cli-in-workflows
-      - name: ⬇️ Download com.github.jackdbd/pod-jackdbd-jsoup
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: ./download_pod_jackdbd_jsoup.sh
-      
-      - name: 🔍 Run all tests
-        run: bb test_runner.clj
 
-      # https://github.com/liquidz/babashka-test-action/
-      # - name: Run babashka-test-action
-      #   uses: liquidz/babashka-test-action@v1
-      #   with:
-      #     source-paths: 'src'
-      #     test-paths: 'test'
-      #     test-file-pattern: '_test.clj$'
+      - name: 📦 Build Babashka uberjar
+        run: bb build:bb-uber
 
-      - name: ⬇️ Download uberjar
-        uses: actions/download-artifact@v4
-        with:
-          name: uberjar
-
-      - name: Copy the uberjar and the binary to the target directory
+      - name: Move uberjar to target/
         run: |
-          mkdir target
-          cp ${{ env.APP_ID }}-${{ env.APP_VERSION }}-standalone.jar target/
+          mv ${{ env.UBERJAR_NAME }}-${{ env.VERSION }}.jar target/
+          # mv ${{ env.UBERJAR_NAME }}-${{ env.VERSION }}-standalone.jar target/
 
       - name: 📦 Compile uberjar to x86_64-linux binary with GraalVM native-image
         run: ./script/compile.sh
 
-  macos-binary:
-    name: macOS binary
-    needs: [shared-outputs, uberjar, create-github-release]
+      - name: ⬆️ Upload Linux amd64 binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-amd64-binary
+          path: target/${{ env.BINARY_NAME }}
+          if-no-files-found: error
+
+  macos-aarch64-binary:
+    name: macOS aarch64 binary
+    needs: [shared-outputs]
     runs-on: macos-latest
 
     env:
-      APP_VERSION: ${{ needs.shared-outputs.outputs.app_version }}
+      VERSION: ${{ needs.shared-outputs.outputs.version }}
 
     steps:
       - name: 🛎️ Checkout
@@ -212,20 +235,31 @@ jobs:
           native-image-pr-reports: true
           version: ${{ env.GRAALVM_VERSION }}
 
-      - name: ⬇️ Download uberjar
-        uses: actions/download-artifact@v4
+      - name: 🔧 Setup Babashka
+        uses: DeLaGuardo/setup-clojure@12.5
         with:
-          name: uberjar
-  
-      - name: Copy the uberjar and the binary to the target directory
-        run: |
-          mkdir target
-          cp ${{ env.APP_ID }}-${{ env.APP_VERSION }}-standalone.jar target/
+          bb: 'latest'
 
+      - name: 📦 Build Babashka uberjar
+        run: bb build:bb-uber
+
+      # Troubleshooting: Babashka pods should be somewhere here.
+      # - run: ls -1 -R ~/.babashka
+
+      # - name: ⬇️ Download uberjar
+      #   uses: actions/download-artifact@v4
+      #   with:
+      #     name: uberjar
+  
+      # - name: Copy uberjar and binary to target/
+      #   run: |
+      #     mkdir target
+      #     cp ${{ env.UBERJAR_NAME }}-${{ env.VERSION }}-standalone.jar target/
+
+      # TODO: bundle pod-jackdbd-jsoup when building with GraalVM native-image
       - name: 📦 Compile uberjar to AArch64-macOS binary with GraalVM native-image
         run: |
-          native-image \
-            -jar ${{ env.APP_ID }}-${{ env.APP_VERSION }}-standalone.jar \
+          native-image -jar ${{ env.UBERJAR_NAME }}-${{ env.VERSION }}-standalone.jar ${{ env.BINARY_NAME }} \
             '-H:ReflectionConfigurationFiles=reflection.json' \
             '-H:+ReportExceptionStackTraces' \
             '-J-Dclojure.compiler.direct-linking=true' \
@@ -237,15 +271,15 @@ jobs:
             '--no-fallback' \
             '--report-unsupported-elements-at-runtime'
 
-  create-github-release:
-    name: Create GitHub release
+  github-release:
+    name: GitHub release
     if: ${{ github.event_name != 'pull_request' }}
-    needs: [shared-outputs, uberjar]
+    needs: [shared-outputs, uberjar, linux-amd64-binary, macos-aarch64-binary, container-image]
     runs-on: ubuntu-latest
     
     env:
-      APP_VERSION: ${{ needs.shared-outputs.outputs.app_version }}
       IS_PRERELEASE: ${{ needs.shared-outputs.outputs.is_prerelease }}
+      VERSION: ${{ needs.shared-outputs.outputs.version }}
 
     permissions:
       contents: write
@@ -265,7 +299,7 @@ jobs:
           name: bb-uberjar
 
       # Troubleshooting: do we have every assets we want to include in the GitHub release?
-      - run: ls -R
+      - run: ls -la
 
       # https://github.com/marketplace/actions/gh-release
       - name: Add uberjar to GitHub release
@@ -273,28 +307,19 @@ jobs:
         id: github_release
         with:
           body: |
-            📦 **${{ env.APP_ID }}** version `${{ env.APP_VERSION }}`.
+            📦 **${{ env.UBERJAR_NAME }}** version `${{ env.VERSION }}`.
 
             You will also need to download a [release of pod-jackdbd-jsoup](https://github.com/jackdbd/pod-jackdbd-jsoup/releases) and extact the pod to `resources/pod/pod-jackdbd-jsoup`.
           # draft: true
           fail_on_unmatched_files: true
+          # TODO: add all binaries compiled with GraalVM native-image
           files: |
-            ${{ env.APP_ID }}-${{ env.APP_VERSION }}-standalone.jar
-            ${{ env.APP_ID }}-${{ env.APP_VERSION }}.jar
+            ${{ env.UBERJAR_NAME }}-${{ env.VERSION }}-standalone.jar
+            ${{ env.UBERJAR_NAME }}-${{ env.VERSION }}.jar
           # body is prepended to these automatically generated release notes.
           # See here for how to configure these release notes:
           # https://docs.github.com/en/repositories/releasing-projects-on-github/automatically-generated-release-notes#configuring-automatically-generated-release-notes
           generate_release_notes: true
-          name: v${{ env.APP_VERSION }}
+          name: v${{ env.VERSION }}
           prerelease: ${{ env.IS_PRERELEASE }}
-          tag_name: v${{ env.APP_VERSION }}
-
-  update-github-release:
-    name: Update GitHub release
-    if: ${{ github.event_name != 'pull_request' }}
-    needs: [create-github-release, linux-binary, macos-binary]
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: TODO update GitHub release
-        run: echo "update GitHub release with all binaries compiled with GraalVM native-image"
+          tag_name: v${{ env.VERSION }}

@@ -14,6 +14,7 @@
     DEBUG_BB_UBERJAR = "true";
     GH_TOKEN = builtins.readFile "/run/secrets/github-tokens/semantic_release_bot";
     POD_JACKDBD_JSOUP_VERSION = "0.4.0-RC.1";
+    TELEGRAM = builtins.readFile "/run/secrets/telegram/jackdbd_github_bot";
   };
 
   languages = {

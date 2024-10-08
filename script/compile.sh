@@ -1,17 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-APP_NAME=fosdem-dl
-GROUP_ID=com.github.jackdbd
-# "regular" uberjar
-UBERJAR_PATH="target/$APP_NAME-$APP_VERSION-standalone.jar"
-# babashka uberjar
-# UBERJAR_PATH="target/$APP_NAME-$APP_VERSION.jar"
+BINARY_NAME=fosdem-dl
+UBERJAR_NAME=fosdem-dl
+# GROUP_ID=com.github.jackdbd
+VERSION=0.1.0-RC.1 # see deps.edn
+# UBERJAR_PATH="target/$UBERJAR_NAME-$VERSION-standalone.jar" # normal uberjar
+UBERJAR_PATH="target/$UBERJAR_NAME-$VERSION.jar" # babashka uberjar
 echo "UBERJAR_PATH is $UBERJAR_PATH"
-
-# Entry point of the GraalVM native-image documentation.
-# https://www.graalvm.org/latest/reference-manual/native-image/
-# https://www.graalvm.org/latest/reference-manual/native-image/overview/BuildOutput/
 
 HEAP_SIZE_AT_BUILD_TIME="-R:MaxHeapSize=1024m"
 
@@ -27,18 +23,9 @@ MACHINE_TYPE="-march=x86-64-v3"
 # https://github.com/oracle/graal/issues/407
 TARGET="linux-amd64"
 
-# clojure -M -e "(compile 'fosdem-dl.cli)"
+# TODO: bundle pod-jackdbd-jsoup when building with GraalVM native-image
 
-# native-image --version
-
-# CLASSPATH=$(clojure -Spath)
-# echo "CLASSPATH is $CLASSPATH"
-# clojure -Scp $CLASSPATH -M -e "(compile '$APP_NAME.cli)"
-
-native-image \
-  -cp "$(clojure -Spath)" \
-  -jar $UBERJAR_PATH \
-  -H:Name=$APP_NAME \
+native-image -jar $UBERJAR_PATH $BINARY_NAME \
   -H:ResourceConfigurationFiles=resource-config.json \
   -H:+UnlockExperimentalVMOptions \
   $HEAP_SIZE_AT_BUILD_TIME \
@@ -51,3 +38,10 @@ native-image \
   --static --libc=musl \
   "--target=$TARGET"
   # --verbose
+
+if [ "${CI+x}" ]; then
+  # We are on GitHub actions
+  echo "We are on GitHub actions"
+else
+  echo "We are NOT on GitHub actions"
+fi

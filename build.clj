@@ -30,7 +30,7 @@
                   :class-dir class-dir}))
 
 (defn uber "Build the uber-JAR." [_]
-  (println "\nCopying resources (including the pod binary) ...")
+  (println (format "\nCopying resources (including pods) to %s ..." class-dir))
   (b/copy-dir {:src-dirs ["resources"]
                :target-dir class-dir})
 
