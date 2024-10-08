@@ -33,8 +33,6 @@
 
  :deps
  {babashka/babashka {:mvn/version "1.4.192"}
-  ;; com.github.jackdbd/pod.jackdbd.jsoup {:local/root "./resources/pod/pod.jackdbd.jsoup-0.4.0-RC.1-standalone.jar"}
-;;   com.github.jackdbd/pod.jackdbd.jsoup {:mvn/version "0.4.0-RC.1"}
   org.clojure/clojure {:mvn/version "1.12.0"}
   progrock/progrock {:mvn/version "0.1.2"}}
 

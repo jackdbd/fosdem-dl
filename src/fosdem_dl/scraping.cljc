@@ -1,10 +1,21 @@
 (ns fosdem-dl.scraping
   (:require
+   #?(:bb [pod.jackdbd.jsoup :as jsoup]
+      :clj [babashka.pods :as pods])
    [clojure.core :refer [format]]
    [clojure.string :as str]
    [fosdem-dl.defaults :as default]
-   [pod.jackdbd.jsoup :as jsoup]
    [taoensso.timbre :refer [debug warn]]))
+
+(def jsoup-pod (atom nil))
+
+;; When running on Babashka we have already imported the pod, so we have nothing
+;; to require/load here. We still need to define a match for the reader
+;; conditional though, because otherwise Babashka will match the :clj branch.
+;; Also, make sure the version of the pod is the same as the one in the bb.edn.
+#?(:bb  nil
+   :clj (do (reset! jsoup-pod (pods/load-pod 'com.github.jackdbd/jsoup "0.4.0"))
+            (require '[pod.jackdbd.jsoup :as jsoup])))
 
 (defn maybe-video-url
   "Extracts the <video> `src` attribute from an HTML string."
@@ -12,6 +23,7 @@
     :or {video-format default/video-format}}]
   (let [selector "video>source"
         video-src (-> html
+                      #_{:clj-kondo/ignore [:unresolved-namespace]}
                       (jsoup/select selector)
                       first
                       :attrs
@@ -38,7 +50,8 @@
 (defn attachment-urls
   [{:keys [html]}]
   (let [selector ".event-attachments>li>a[href]"
-        links (jsoup/select html selector)]
+        links #_{:clj-kondo/ignore [:unresolved-namespace]}
+        (jsoup/select html selector)]
     (debug "Found" (count links) "links in HTML using selector" selector)
     (map jsoup-node-element->href links)))
 
@@ -47,7 +60,8 @@
    Example: https://archive.fosdem.org/2020/schedule/track/databases/"
   [{:keys [html]}]
   (let [selector "table:last-child tr>td:nth-child(2)>a[href]"
-        links (jsoup/select html selector)]
+        links #_{:clj-kondo/ignore [:unresolved-namespace]}
+        (jsoup/select html selector)]
     (debug "Found" (count links) "links in HTML using selector" selector)
     (map jsoup-node-element->href links)))
 
@@ -56,6 +70,7 @@
    Example: https://archive.fosdem.org/2020/schedule/tracks/"
   [{:keys [html]}]
   (let [selector "tr>td:first-child>a[href]"
-        links (jsoup/select html selector)]
+        links #_{:clj-kondo/ignore [:unresolved-namespace]}
+        (jsoup/select html selector)]
     (debug "Found" (count links) "links in HTML using selector" selector)
     (map jsoup-node-element->href links)))

@@ -10,7 +10,7 @@ on:
 env:
   BINARY_NAME: fosdem-dl
   GRAALVM_VERSION: 23.0.0
-  HEAP_SIZE_AT_BUILD_TIME: '-R:MaxHeapSize=1024m'
+  HEAP_SIZE_AT_BUILD_TIME: '-R:MaximumHeapSizePercent=50'
   JAVA_VERSION: 21
   OPTIMIZATION_LEVEL: '-O2'
   UBERJAR_NAME: fosdem-dl
@@ -88,11 +88,13 @@ jobs:
       #     GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       #   run: ./download_pod_jackdbd_jsoup.sh
 
+      # Question: will calling `bb tasks` cause Babashka to download the pods declared in bb.edn?
+      # Answer: yes, it will.
+      # - run: bb tasks
+      # - run: ls -1 -R ~/.babashka
+
       - name: 📦 Build a Babashka uberjar
         run: bb build:bb-uber
-
-      # Troubleshooting: Babashka pods should be somewhere here.
-      # - run: ls -1 -R ~/.babashka
 
       - name: "CLI talks --help"
         run: bb target/${{env.UBERJAR_NAME }}-${{ env.VERSION }}.jar talks --help
@@ -169,7 +171,7 @@ jobs:
 
   linux-amd64-binary:
     name: Linux amd64 binary
-    needs: [shared-outputs]
+    needs: [shared-outputs, uberjar]
     runs-on: ubuntu-latest
 
     env:
@@ -186,22 +188,32 @@ jobs:
           distribution: graalvm-community
           java-version: ${{ env.JAVA_VERSION }}
           native-image-job-reports: true
+          native-image-musl: true # Use musl to build a statically compiled binary (Linux only)
           native-image-pr-reports: true
           version: ${{ env.GRAALVM_VERSION }}
 
-      - name: 🔧 Setup Clojure CLI and Babashka
+      - name: 🔧 Setup Babashka
         uses: DeLaGuardo/setup-clojure@12.5
         with:
-          cli: 'latest'
           bb: 'latest'
 
-      - name: 📦 Build Babashka uberjar
-        run: bb build:bb-uber
+      # We let Babashka download the pod for this OS & architecture.
+      - run: bb tasks
+      # - name: 📦 Build Babashka uberjar
+      #   run: bb build:bb-uber
 
+      - name: ⬇️ Download uberjar
+        uses: actions/download-artifact@v4
+        with:
+          name: uberjar
+  
       - name: Move uberjar to target/
         run: |
-          mv ${{ env.UBERJAR_NAME }}-${{ env.VERSION }}.jar target/
-          # mv ${{ env.UBERJAR_NAME }}-${{ env.VERSION }}-standalone.jar target/
+          mkdir target
+          mv ${{ env.UBERJAR_NAME }}-${{ env.VERSION }}-standalone.jar target/
+
+      # Troubleshooting: Babashka pods should be somewhere here.
+      # - run: ls -1 -R ~/.babashka
 
       - name: 📦 Compile uberjar to x86_64-linux binary with GraalVM native-image
         run: ./script/compile.sh
@@ -215,7 +227,7 @@ jobs:
 
   macos-aarch64-binary:
     name: macOS aarch64 binary
-    needs: [shared-outputs]
+    needs: [shared-outputs, uberjar]
     runs-on: macos-latest
 
     env:
@@ -240,36 +252,39 @@ jobs:
         with:
           bb: 'latest'
 
-      - name: 📦 Build Babashka uberjar
-        run: bb build:bb-uber
+      # We let Babashka download the pod for this OS & architecture.
+      - run: bb tasks
+      # - name: 📦 Build Babashka uberjar
+      #   run: bb build:bb-uber
 
-      # Troubleshooting: Babashka pods should be somewhere here.
       # - run: ls -1 -R ~/.babashka
 
-      # - name: ⬇️ Download uberjar
-      #   uses: actions/download-artifact@v4
-      #   with:
-      #     name: uberjar
+      - name: ⬇️ Download uberjar
+        uses: actions/download-artifact@v4
+        with:
+          name: uberjar
   
-      # - name: Copy uberjar and binary to target/
-      #   run: |
-      #     mkdir target
-      #     cp ${{ env.UBERJAR_NAME }}-${{ env.VERSION }}-standalone.jar target/
-
       # TODO: bundle pod-jackdbd-jsoup when building with GraalVM native-image
       - name: 📦 Compile uberjar to AArch64-macOS binary with GraalVM native-image
         run: |
           native-image -jar ${{ env.UBERJAR_NAME }}-${{ env.VERSION }}-standalone.jar ${{ env.BINARY_NAME }} \
-            '-H:ReflectionConfigurationFiles=reflection.json' \
-            '-H:+ReportExceptionStackTraces' \
-            '-J-Dclojure.compiler.direct-linking=true' \
+            '-H:ResourceConfigurationFiles=resource-config.json' \
+            '-H:+UnlockExperimentalVMOptions' \
+            '--gc=serial' \
             ${{ env.HEAP_SIZE_AT_BUILD_TIME }} \
             ${{ env.OPTIMIZATION_LEVEL }} \
             '-march=armv8-a' \
-            '--initialize-at-build-time' \
+            '--initialize-at-run-time=fosdem_dl.cli' \
             '--native-image-info' \
             '--no-fallback' \
-            '--report-unsupported-elements-at-runtime'
+            '--verbose'
+
+      - name: ⬆️ Upload macOS aarch64 binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-aarch64-binary
+          path: target/${{ env.BINARY_NAME }}
+          if-no-files-found: error
 
   github-release:
     name: GitHub release
@@ -297,6 +312,21 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: bb-uberjar
+      
+      - name: ⬇️ Download linux-amd64-binary
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-amd64-binary
+
+      - name: ⬇️ Download macos-aarch64-binary
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-aarch64-binary
+
+      - name: 📦 Create archives for all assets to be included in the GitHub release
+        run: |
+          zip "${{ env.BINARY_NAME }}-${{ env.VERSION }}-ubuntu-latest-amd64.zip" linux-amd64-binary
+          zip "${{ env.BINARY_NAME }}-${{ env.VERSION }}-macos-latest-aarch64.zip" macos-aarch64-binary
 
       # Troubleshooting: do we have every assets we want to include in the GitHub release?
       - run: ls -la
@@ -314,8 +344,10 @@ jobs:
           fail_on_unmatched_files: true
           # TODO: add all binaries compiled with GraalVM native-image
           files: |
-            ${{ env.UBERJAR_NAME }}-${{ env.VERSION }}-standalone.jar
             ${{ env.UBERJAR_NAME }}-${{ env.VERSION }}.jar
+            ${{ env.UBERJAR_NAME }}-${{ env.VERSION }}-standalone.jar
+            ${{ env.BINARY_NAME }}-${{ env.VERSION }}-macos-latest-aarch64.zip
+            ${{ env.BINARY_NAME }}-${{ env.VERSION }}-ubuntu-latest-amd64.zip
           # body is prepended to these automatically generated release notes.
           # See here for how to configure these release notes:
           # https://docs.github.com/en/repositories/releasing-projects-on-github/automatically-generated-release-notes#configuring-automatically-generated-release-notes

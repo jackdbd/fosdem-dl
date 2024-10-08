@@ -11,6 +11,10 @@
   '';
 
   env = {
+    # Set these environment variables to true if you want a statically linked
+    # binary when compiling with GraalVM native image.
+    BABASHKA_MUSL = "true";
+    BABASHKA_STATIC = "true";
     DEBUG_BB_UBERJAR = "true";
     GH_TOKEN = builtins.readFile "/run/secrets/github-tokens/semantic_release_bot";
     POD_JACKDBD_JSOUP_VERSION = "0.4.0";
