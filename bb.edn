@@ -2,7 +2,8 @@
  :min-bb-version "1.3.189"
  :paths ["bb" "src" "resources"]
  :pods {com.github.jackdbd/jsoup {:version "0.4.0"}
-        ;; com.github.jackdbd/pod-jackdbd-jsoup {:path "./resources/pod/pod-jackdbd-jsoup"}
+        ;; for a local pod:
+        ;; com.github.jackdbd/jsoup {:path "/home/jack/.babashka/pods/pod-jackdbd-jsoup"}
         }
 
  :tasks

@@ -329,8 +329,8 @@ jobs:
 
       - name: 📦 Create archives for all assets to be included in the GitHub release
         run: |
-          zip "${{ env.BINARY_NAME }}-${{ env.VERSION }}-ubuntu-latest-amd64.zip" linux-amd64-binary
-          zip "${{ env.BINARY_NAME }}-${{ env.VERSION }}-macos-latest-aarch64.zip" macos-aarch64-binary
+          mv linux-amd64-binary fosdem-dl && zip "${{ env.BINARY_NAME }}-${{ env.VERSION }}-linux-amd64.zip" fosdem-dl && rm fosdem-dl
+          mv macos-aarch64-binary fosdem-dl && zip "${{ env.BINARY_NAME }}-${{ env.VERSION }}-macos-aarch64.zip" fosdem-dl && rm fosdem-dl
 
       # Troubleshooting: do we have every assets we want to include in the GitHub release?
       - run: ls -la
@@ -340,18 +340,15 @@ jobs:
         uses: softprops/action-gh-release@v2
         id: github_release
         with:
-          body: |
-            📦 **${{ env.UBERJAR_NAME }}** version `${{ env.VERSION }}`.
-
-            You will also need to download a [release of pod-jackdbd-jsoup](https://github.com/jackdbd/pod-jackdbd-jsoup/releases) and extact the pod to `resources/pod/pod-jackdbd-jsoup`.
+          body_path: ${{ github.workspace }}/docs/release-body.md
           # draft: true
           fail_on_unmatched_files: true
           # TODO: add all binaries compiled with GraalVM native-image
           files: |
             ${{ env.UBERJAR_NAME }}-${{ env.VERSION }}.jar
             ${{ env.UBERJAR_NAME }}-${{ env.VERSION }}-standalone.jar
-            ${{ env.BINARY_NAME }}-${{ env.VERSION }}-macos-latest-aarch64.zip
-            ${{ env.BINARY_NAME }}-${{ env.VERSION }}-ubuntu-latest-amd64.zip
+            ${{ env.BINARY_NAME }}-${{ env.VERSION }}-linux-amd64.zip
+            ${{ env.BINARY_NAME }}-${{ env.VERSION }}-macos-aarch64.zip
           # body is prepended to these automatically generated release notes.
           # See here for how to configure these release notes:
           # https://docs.github.com/en/repositories/releasing-projects-on-github/automatically-generated-release-notes#configuring-automatically-generated-release-notes

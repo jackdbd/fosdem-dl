@@ -4,9 +4,7 @@
   "CLI to download the talks given at FOSDEM over the years."
   (:gen-class)
   (:require
-   [babashka.pods :as pods]
    [clojure.string :as str]
-   [fosdem-dl.scraping :refer [jsoup-pod]]
    [fosdem-dl.talks-cli :refer [talks-cli]]
    [fosdem-dl.tracks-cli :refer [tracks-cli]]))
 
@@ -47,7 +45,6 @@ Available commands: %s" (str/join ", " available-commands)))]
     (when-let [stderr (:sterr result)]
       (println "ERRORS")
       (println stderr))
-    (pods/unload-pod @jsoup-pod)
     (System/exit (:exit-code result))))
 
 ;; TODO: do I need to call pods/unload when exiting? Otherwise it seems the CLI

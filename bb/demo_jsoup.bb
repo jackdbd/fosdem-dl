@@ -44,6 +44,12 @@
   (maybe-video-url {:html html})
   (attachment-urls {:html html})
 
+  (pods/unload-pod "pod.jackdbd.jsoup")
+
+  (def pod-spec (pods/load-pod 'com.github.jackdbd/jsoup "0.4.0"))
+  (require '[pod.jackdbd.jsoup :as jsoup]) 
+  (pods/unload-pod pod-spec)
+
   ;; Load the pod by evaluating one of the following two lines
   (def pod-spec (pods/load-pod ["java" "-jar" uber-file]))
   (def pod-spec (pods/load-pod exe-file))

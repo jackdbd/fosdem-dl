@@ -6,32 +6,7 @@ Download all talks from a [FOSDEM](https://fosdem.org/) conference track in a sp
 
 ## Installation
 
->[!IMPORTANT]
-> At the moment this project is only available on [GitHub Releases](https://github.com/jackdbd/fosdem-dl/releases) as [Babashka uberjar](https://book.babashka.org/#_uberjar).
-
-To use the CLI you will need to have:
-
-1. [Babashka](https://babashka.org/) installed on your machine.
-1. A [pod-jackdbd-jsoup](https://github.com/jackdbd/pod-jackdbd-jsoup) binary for your combination of OS/architecture.
-1. Execution permissions on the pod binary (e.g. `chmod +x pod-jackdbd-jsoup`).
-1. A file structure like the one below.
-
-```sh
-.
-├── fosdem-dl-0.1.0-RC.1.jar
-└── resources
-   └── pod
-      └── pod-jackdbd-jsoup
-```
-
-If all these requirements are met, you can use the CLI with:
-
-```sh
-bb fosdem-dl-0.1.0-RC.1.jar
-```
-
->[!NOTE]
-> I'm trying to understand how to bundle a Babashka pod in a binary compiled with GraalVM native-image.
+This project is available on [GitHub Releases](https://github.com/jackdbd/fosdem-dl/releases) as an uberjar and a [Babashka uberjar](https://book.babashka.org/#_uberjar).
 
 ## Usage
 
@@ -80,7 +55,7 @@ Examples:
 fosdem-dl tracks -y 2020
 ```
 
->[!TIP]
+> [!TIP]
 > You can invoke the help of each command with `-h`, `--help`, `:h`, or `:help`.
 
 ### Examples
@@ -113,11 +88,14 @@ This project uses a [`bb.edn`](./bb.edn) file to define a few [Babashka tasks](h
 
 A specific version of `pod-jackdbd-jsoup` might not be *registered* on the [Babashka pod registry](https://github.com/babashka/pod-registry), but you can always download that pod from [GitHub Releases](https://github.com/jackdbd/pod-jackdbd-jsoup/releases).
 
-Make sure to set the environment variable `POD_JACKDBD_JSOUP_VERSION` to the desired version, then run this script.
+Make sure to set the environment variable `POD_JACKDBD_JSOUP_VERSION` to the desired version, then run this script (you will need to have the [GitHub CLI](https://cli.github.com/) installed).
 
 ```sh
 ./download_pod_jackdbd_jsoup.sh
 ```
+
+> [!NOTE]
+> `pod-jackdbd-jsoup` is available both as a binary and as an uberjar. This script will download both.
 
 ### Namespace dependency graph
 

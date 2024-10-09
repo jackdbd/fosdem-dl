@@ -3,10 +3,10 @@
    [babashka.http-client :as http]
    [clojure.java.io :as io]
    [fosdem-dl.download :refer [download-all!]]
+   [fosdem-dl.pods :refer [pod-specs]]
    [fosdem-dl.scraping :refer [attachment-urls
                                conference-track-urls
                                jsoup-node-element->href
-                               jsoup-pod
                                maybe-video-url]]
    [fosdem-dl.talks-cli :refer [talks-cli]]
    [fosdem-dl.tracks-cli :refer [tracks-cli]]
@@ -26,7 +26,7 @@
   (maybe-video-url {:html html})
   (attachment-urls {:html html})
 
-  (pods/unload-pod @jsoup-pod))
+  (pods/unload-pod (:jsoup @pod-specs))
 
   (require '[babashka.pods :as pods])
   (def pod-spec (pods/load-pod 'com.github.jackdbd/jsoup "0.4.0"))

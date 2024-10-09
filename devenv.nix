@@ -29,6 +29,7 @@
   packages = with pkgs; [
     babashka # Clojure interpreter for scripting
     dive # tool for exploring layers in a container image
+    gh # GitHub CLI
     git
 
     # musl is required by GraalVM native-image when compiling a statically
@@ -68,6 +69,7 @@
       bb --version
       dive --version
       dot --version
+      gh --version
       git --version
       java --version
       native-image --version

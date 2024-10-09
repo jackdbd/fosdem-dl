@@ -1,21 +1,22 @@
 (ns fosdem-dl.scraping
   (:require
    #?(:bb [pod.jackdbd.jsoup :as jsoup]
-      :clj [babashka.pods :as pods])
+      :clj  [babashka.pods :as pods])
    [clojure.core :refer [format]]
    [clojure.string :as str]
    [fosdem-dl.defaults :as default]
    [taoensso.timbre :refer [debug warn]]))
-
-(def jsoup-pod (atom nil))
 
 ;; When running on Babashka we have already imported the pod, so we have nothing
 ;; to require/load here. We still need to define a match for the reader
 ;; conditional though, because otherwise Babashka will match the :clj branch.
 ;; Also, make sure the version of the pod is the same as the one in the bb.edn.
 #?(:bb  nil
-   :clj (do (reset! jsoup-pod (pods/load-pod 'com.github.jackdbd/jsoup "0.4.0"))
-            (require '[pod.jackdbd.jsoup :as jsoup])))
+   :clj (do (require '[fosdem-dl.pods :refer [pod-specs]])
+            ;; for a local pod: (pods/load-pod "/home/jack/.babashka/pods/pod-jackdbd-jsoup")
+            (let [pod-spec (pods/load-pod 'com.github.jackdbd/jsoup "0.4.0")]
+              (swap! pod-specs assoc :jsoup pod-spec)
+              (require '[pod.jackdbd.jsoup :as jsoup]))))
 
 (defn maybe-video-url
   "Extracts the <video> `src` attribute from an HTML string."
