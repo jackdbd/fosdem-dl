@@ -8,25 +8,20 @@ on:
       - main
 
 env:
-  BINARY_NAME: fosdem-dl
+  APP_NAME: fosdem-dl
   GRAALVM_VERSION: 23.0.0
   HEAP_SIZE_AT_BUILD_TIME: '-R:MaximumHeapSizePercent=50'
   JAVA_VERSION: 21
   OPTIMIZATION_LEVEL: '-O2'
-  UBERJAR_NAME: fosdem-dl
 
 jobs:
   shared-outputs:
     name: Shared outputs
     runs-on: ubuntu-latest
-
-    # env:
-      # POD_JACKDBD_JSOUP_VERSION: 0.4.0
-      # VERSION: 0.1.0-RC.1
   
     outputs:
+      app_version: ${{ steps.set_outputs.outputs.app_version }}
       is_prerelease: ${{ steps.set_outputs.outputs.is_prerelease }}
-      version: ${{ steps.set_outputs.outputs.version }}
       
     steps:
       - name: 🛎️ Checkout
@@ -44,21 +39,21 @@ jobs:
       - name: Set job outputs
         id: set_outputs
         run: |
+          APP_VERSION=$(bb -e '(-> (slurp "deps.edn") edn/read-string :aliases :neil :project :version)' | tr -d '"')
+          echo "app_version=$APP_VERSION" >> $GITHUB_OUTPUT
+
           if [ "${{ github.ref }}" == "refs/heads/main" ]; then
             echo "is_prerelease=false" >> $GITHUB_OUTPUT
           else
             echo "is_prerelease=true" >> $GITHUB_OUTPUT
           fi
 
-          VERSION=$(bb -e '(-> (slurp "deps.edn") edn/read-string :aliases :neil :project :version)' | tr -d '"')
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-
       - name: Log job outputs
         run: |
+          echo "app_version is ${{ steps.set_outputs.outputs.app_version }}"
           echo "is_prerelease is ${{ steps.set_outputs.outputs.is_prerelease }}"
           # echo "pod_jackdbd_jsoup_path_linux is ${{ steps.set_outputs.outputs.pod_jackdbd_jsoup_path_linux }}"
           # echo "pod_jackdbd_jsoup_path_macos is ${{ steps.set_outputs.outputs.pod_jackdbd_jsoup_path_macos }}"
-          echo "version is ${{ steps.set_outputs.outputs.version }}"
 
   uberjar:
     name: Uberjar
@@ -66,7 +61,7 @@ jobs:
     runs-on: ubuntu-latest
   
     env:
-      VERSION: ${{ needs.shared-outputs.outputs.version }}
+      APP_VERSION: ${{ needs.shared-outputs.outputs.app_version }}
   
     steps:
       - name: 🛎️ Checkout
@@ -88,25 +83,20 @@ jobs:
       #     GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       #   run: ./download_pod_jackdbd_jsoup.sh
 
-      # Question: will calling `bb tasks` cause Babashka to download the pods declared in bb.edn?
-      # Answer: yes, it will.
-      # - run: bb tasks
-      # - run: ls -1 -R ~/.babashka
-
       - name: 📦 Build a Babashka uberjar
         run: bb build:bb-uber
 
       - name: "CLI talks --help"
-        run: bb target/${{env.UBERJAR_NAME }}-${{ env.VERSION }}.jar talks --help
+        run: bb target/${{env.APP_NAME }}-${{ env.APP_VERSION }}.jar talks --help
   
       - name: "CLI tracks --help"
-        run: bb target/${{env.UBERJAR_NAME }}-${{ env.VERSION }}.jar tracks --help
+        run: bb target/${{env.APP_NAME }}-${{ env.APP_VERSION }}.jar tracks --help
 
       - name: ⬆️ Upload Babashka uberjar
         uses: actions/upload-artifact@v4
         with:
           name: bb-uberjar
-          path: target/${{ env.UBERJAR_NAME }}-${{ env.VERSION }}.jar
+          path: target/${{ env.APP_NAME }}-${{ env.APP_VERSION }}.jar
           if-no-files-found: error
 
       - name: 📦 Build normal uberjar
@@ -118,7 +108,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: uberjar
-          path: target/${{ env.UBERJAR_NAME }}-${{ env.VERSION }}-standalone.jar
+          path: target/${{ env.APP_NAME }}-${{ env.APP_VERSION }}-standalone.jar
           if-no-files-found: error
 
   test:
@@ -151,23 +141,72 @@ jobs:
     needs: [shared-outputs]
     runs-on: ubuntu-latest
 
+    env:
+      REGISTRY: ghcr.io
+      IMAGE_NAME: ${{ github.repository }}
+      APP_VERSION: ${{ needs.shared-outputs.outputs.app_version }}
+
+    permissions:
+      contents: read
+      packages: write
+      attestations: write
+      id-token: write
+
     steps:
       - name: 🛎️ Checkout
         uses: actions/checkout@v4
 
-      - name: 🔧 Setup Clojure CLI and Babashka
-        uses: DeLaGuardo/setup-clojure@12.5
+      # - name: 🔧 Setup Clojure CLI and Babashka
+      #   uses: DeLaGuardo/setup-clojure@12.5
+      #   with:
+      #     cli: 'latest'
+      #     bb: 'latest'
+
+      # - name: 🐋 Build container image
+      #   run: bb container:build
+
+      # # Print a few commands to double check that the CLI is working as expected
+      # - run: bb container:cli help
+      # - run: bb container:cli talks --help
+      # - run: bb container:cli tracks --help
+
+      # https://github.com/marketplace/actions/docker-login
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3.3.0
         with:
-          cli: 'latest'
-          bb: 'latest'
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: 🐋 Build container image
-        run: bb container:build
+      # https://github.com/marketplace/actions/docker-metadata-action
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5.5.1
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
 
-      # Print a few commands to double check that the CLI is working as expected
-      - run: bb container:cli help
-      - run: bb container:cli talks --help
-      - run: bb container:cli tracks --help
+      # https://github.com/marketplace/actions/build-and-push-docker-images
+      - name: Build and push Docker image
+        id: push
+        uses: docker/build-push-action@v6.9.0
+        with:
+          context: .
+          push: true
+          build-args: |
+            APP_NAME=${{env.APP_NAME }}
+            APP_VERSION=${{env.APP_VERSION }}
+            BB_VERSION=1.4.192
+            JSOUP_POD_VERSION=0.4.0
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+      # https://github.com/marketplace/actions/attest-build-provenance
+      - name: Generate artifact attestation
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME}}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
 
   linux-amd64-binary:
     name: Linux amd64 binary
@@ -175,7 +214,7 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      VERSION: ${{ needs.shared-outputs.outputs.version }}
+      APP_VERSION: ${{ needs.shared-outputs.outputs.app_version }}
 
     steps:
       - name: 🛎️ Checkout
@@ -197,10 +236,10 @@ jobs:
         with:
           bb: 'latest'
 
-      # We let Babashka download the pod for this OS & architecture.
+      # Calling `bb tasks` is enough to let Babashka download all pods declared
+      # in the bb.edn file. Babashka downloads only the pod binary files that
+      # were compiled for the combination of OS & arch of this GitHub runner.
       - run: bb tasks
-      # - name: 📦 Build Babashka uberjar
-      #   run: bb build:bb-uber
 
       - name: ⬇️ Download uberjar
         uses: actions/download-artifact@v4
@@ -210,7 +249,7 @@ jobs:
       - name: Move uberjar to target/
         run: |
           mkdir target
-          mv ${{ env.UBERJAR_NAME }}-${{ env.VERSION }}-standalone.jar target/
+          mv ${{ env.APP_NAME }}-${{ env.APP_VERSION }}-standalone.jar target/
 
       # Troubleshooting: Babashka pods should be somewhere here.
       # - run: ls -1 -R ~/.babashka
@@ -224,7 +263,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: linux-amd64-binary
-          path: ${{ env.BINARY_NAME }}
+          path: ${{ env.APP_NAME }}
           if-no-files-found: error
 
   macos-aarch64-binary:
@@ -233,7 +272,7 @@ jobs:
     runs-on: macos-latest
 
     env:
-      VERSION: ${{ needs.shared-outputs.outputs.version }}
+      APP_VERSION: ${{ needs.shared-outputs.outputs.app_version }}
 
     steps:
       - name: 🛎️ Checkout
@@ -256,9 +295,6 @@ jobs:
 
       # We let Babashka download the pod for this OS & architecture.
       - run: bb tasks
-      # - name: 📦 Build Babashka uberjar
-      #   run: bb build:bb-uber
-
       # - run: ls -1 -R ~/.babashka
 
       - name: ⬇️ Download uberjar
@@ -269,7 +305,7 @@ jobs:
       # TODO: bundle pod-jackdbd-jsoup when building with GraalVM native-image
       - name: 📦 Compile uberjar to AArch64-macOS binary with GraalVM native-image
         run: |
-          native-image -jar ${{ env.UBERJAR_NAME }}-${{ env.VERSION }}-standalone.jar ${{ env.BINARY_NAME }} \
+          native-image -jar ${{ env.APP_NAME }}-${{ env.APP_VERSION }}-standalone.jar ${{ env.APP_NAME }} \
             '-H:ResourceConfigurationFiles=resource-config.json' \
             '-H:+UnlockExperimentalVMOptions' \
             '--gc=serial' \
@@ -285,18 +321,18 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: macos-aarch64-binary
-          path: ${{ env.BINARY_NAME }}
+          path: ${{ env.APP_NAME }}
           if-no-files-found: error
 
   github-release:
     name: GitHub release
     if: ${{ github.event_name != 'pull_request' }}
-    needs: [shared-outputs, uberjar, linux-amd64-binary, macos-aarch64-binary, container-image]
+    needs: [shared-outputs, uberjar, container-image, linux-amd64-binary, macos-aarch64-binary]
     runs-on: ubuntu-latest
     
     env:
+      APP_VERSION: ${{ needs.shared-outputs.outputs.app_version }}
       IS_PRERELEASE: ${{ needs.shared-outputs.outputs.is_prerelease }}
-      VERSION: ${{ needs.shared-outputs.outputs.version }}
 
     permissions:
       contents: write
@@ -329,8 +365,8 @@ jobs:
 
       - name: 📦 Create archives for all assets to be included in the GitHub release
         run: |
-          mv linux-amd64-binary fosdem-dl && zip "${{ env.BINARY_NAME }}-${{ env.VERSION }}-linux-amd64.zip" fosdem-dl && rm fosdem-dl
-          mv macos-aarch64-binary fosdem-dl && zip "${{ env.BINARY_NAME }}-${{ env.VERSION }}-macos-aarch64.zip" fosdem-dl && rm fosdem-dl
+          mv linux-amd64-binary fosdem-dl && zip "${{ env.APP_NAME }}-${{ env.APP_VERSION }}-linux-amd64.zip" fosdem-dl && rm fosdem-dl
+          mv macos-aarch64-binary fosdem-dl && zip "${{ env.APP_NAME }}-${{ env.APP_VERSION }}-macos-aarch64.zip" fosdem-dl && rm fosdem-dl
 
       # Troubleshooting: do we have every assets we want to include in the GitHub release?
       - run: ls -la
@@ -345,14 +381,14 @@ jobs:
           fail_on_unmatched_files: true
           # TODO: add all binaries compiled with GraalVM native-image
           files: |
-            ${{ env.UBERJAR_NAME }}-${{ env.VERSION }}.jar
-            ${{ env.UBERJAR_NAME }}-${{ env.VERSION }}-standalone.jar
-            ${{ env.BINARY_NAME }}-${{ env.VERSION }}-linux-amd64.zip
-            ${{ env.BINARY_NAME }}-${{ env.VERSION }}-macos-aarch64.zip
+            ${{ env.APP_NAME }}-${{ env.APP_VERSION }}.jar
+            ${{ env.APP_NAME }}-${{ env.APP_VERSION }}-standalone.jar
+            ${{ env.APP_NAME }}-${{ env.APP_VERSION }}-linux-amd64.zip
+            ${{ env.APP_NAME }}-${{ env.APP_VERSION }}-macos-aarch64.zip
           # body is prepended to these automatically generated release notes.
           # See here for how to configure these release notes:
           # https://docs.github.com/en/repositories/releasing-projects-on-github/automatically-generated-release-notes#configuring-automatically-generated-release-notes
           generate_release_notes: true
-          name: v${{ env.VERSION }}
+          name: v${{ env.APP_VERSION }}
           prerelease: ${{ env.IS_PRERELEASE }}
-          tag_name: v${{ env.VERSION }}
+          tag_name: v${{ env.APP_VERSION }}

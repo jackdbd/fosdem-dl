@@ -16,7 +16,8 @@
     BABASHKA_MUSL = "true";
     BABASHKA_STATIC = "true";
     DEBUG_BB_UBERJAR = "true";
-    GH_TOKEN = builtins.readFile "/run/secrets/github-tokens/semantic_release_bot";
+    # GH_TOKEN = builtins.readFile "/run/secrets/github-tokens/semantic_release_bot";
+    GITHUB_TOKEN = builtins.readFile "/run/secrets/github-tokens/github_packages_push";
     POD_JACKDBD_JSOUP_VERSION = "0.4.0";
     TELEGRAM = builtins.readFile "/run/secrets/telegram/jackdbd_github_bot";
   };

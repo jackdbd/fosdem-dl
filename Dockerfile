@@ -8,19 +8,18 @@ FROM docker.io/library/clojure:temurin-23-tools-deps-1.12.0.1479-bullseye-slim A
 ARG APP_DIR=/usr/src/app
 RUN if [ -z "${APP_DIR}" ] ; then echo "APP_DIR not set!" ; exit 1; fi
 
-ARG ARTIFACT_NAME
-RUN if [ -z "${ARTIFACT_NAME}" ] ; then echo "ARTIFACT_NAME not set!" ; exit 1; fi
+ARG APP_NAME
+RUN if [ -z "${APP_NAME}" ] ; then echo "APP_NAME not set!" ; exit 1; fi
 
-ARG ARTIFACT_VERSION
-RUN if [ -z "${ARTIFACT_VERSION}" ] ; then echo "ARTIFACT_VERSION not set!" ; exit 1; fi
-
-ARG ARTIFACT_NAME
-RUN if [ -z "${ARTIFACT_NAME}" ] ; then echo "ARTIFACT_NAME not set!" ; exit 1; fi
+ARG APP_VERSION
+RUN if [ -z "${APP_VERSION}" ] ; then echo "APP_VERSION not set!" ; exit 1; fi
 
 # If you need to use a version of pod-jackdbd-jsoup not available on the pod
 # registry, you will need to download it and place it where bb.edn declares it
 # (it would be {:pods {some-pod {:path "some-path"}}}). 
 # ARG JSOUP_POD_PATH="resources/pod/pod-jackdbd-jsoup"
+
+ARG CREATED_DATE
 
 # https://github.com/babashka/babashka/releases
 ARG BB_VERSION="1.4.192"
@@ -45,7 +44,7 @@ COPY bb ${APP_DIR}/bb
 COPY src ${APP_DIR}/src
 
 RUN bb run build:bb-uber
-RUN mv target/${ARTIFACT_NAME}-${ARTIFACT_VERSION}.jar "${ARTIFACT_NAME}.jar"
+RUN mv target/${APP_NAME}-${APP_VERSION}.jar "${APP_NAME}.jar"
 
 # === STAGE 2 ================================================================ #
 # Run the uberjar
@@ -61,6 +60,7 @@ RUN groupadd --gid 1234 $NON_ROOT_USER && \
 ARG APP_DIR=/usr/src/app
 ARG JSOUP_POD_VERSION
 RUN if [ -z "${JSOUP_POD_VERSION}" ] ; then echo "JSOUP_POD_VERSION not set!" ; exit 1; fi
+ARG CREATED_DATE
 
 USER $NON_ROOT_USER
 WORKDIR "/home/$NON_ROOT_USER"
@@ -93,6 +93,8 @@ RUN bb -e "(require '[babashka.pods :as pods]) \
 #     mv $JSOUP_POD_BB_PATH $JSOUP_POD_PATH && \
 #     rm -rf "/home/${NON_ROOT_USER}/.babashka"
 
+LABEL org.opencontainers.image.created=${CREATED_DATE}
+LABEL org.opencontainers.image.source=https://github.com/jackdbd/fosdem-dl
 ENTRYPOINT ["bb", "fosdem-dl.jar"]
 CMD ["help"]
 # CMD ["talks", "--help"]

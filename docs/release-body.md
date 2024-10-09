@@ -1,4 +1,12 @@
-fosdem-dl is available as uberjar or Babashka uberjar.
+fosdem-dl is distributed as an uberjar, a [Babashka uberjar](https://book.babashka.org/#_uberjar) and a container image.
+
+## Babashka uberjar (recommended)
+
+To run the Babashka uberjar you will need to have [Babashka](https://babashka.org/) installed on your machine.
+
+```sh
+bb fosdem-dl-0.1.0-RC.1.jar
+```
 
 ## Uberjar
 
@@ -8,17 +16,13 @@ To run the uberjar you will need to have a JRE installed on your machine.
 java -jar fosdem-dl-0.1.0-RC.1-standalone.jar
 ```
 
-## Babashka uberjar
+## Container image
 
-To run the [Babashka uberjar](https://book.babashka.org/#_uberjar) you will need to have [Babashka](https://babashka.org/) installed on your machine.
+Visit [this page](https://github.com/jackdbd/fosdem-dl/pkgs/container/fosdem-dl) to see the list of container images, then pull the one you want. For example:
 
 ```sh
-bb fosdem-dl-0.1.0-RC.1.jar
+docker pull ghcr.io/jackdbd/fosdem-dl:0.1.0-rc.1
 ```
-
-## Container image [TODO]
-
-The CLI can be built as a container image (see `bb.edn`). I just need to push the container image on [Container registry](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry).
 
 ## Binary [TODO]
 

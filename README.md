@@ -6,7 +6,7 @@ Download all talks from a [FOSDEM](https://fosdem.org/) conference track in a sp
 
 ## Installation
 
-This project is available on [GitHub Releases](https://github.com/jackdbd/fosdem-dl/releases) as an uberjar and a [Babashka uberjar](https://book.babashka.org/#_uberjar).
+This project is available on [GitHub Releases](https://github.com/jackdbd/fosdem-dl/releases) and [GitHub Packages](https://github.com/jackdbd/fosdem-dl/pkgs/container/fosdem-dl) as an uberjar, a [Babashka uberjar](https://book.babashka.org/#_uberjar) and a container image.
 
 ## Usage
 

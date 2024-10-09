@@ -13,7 +13,6 @@
 ;; Also, make sure the version of the pod is the same as the one in the bb.edn.
 #?(:bb  nil
    :clj (do (require '[fosdem-dl.pods :refer [pod-specs]])
-            ;; for a local pod: (pods/load-pod "/home/jack/.babashka/pods/pod-jackdbd-jsoup")
             (let [pod-spec (pods/load-pod 'com.github.jackdbd/jsoup "0.4.0")]
               (swap! pod-specs assoc :jsoup pod-spec)
               (require '[pod.jackdbd.jsoup :as jsoup]))))
