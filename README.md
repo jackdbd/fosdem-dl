@@ -1,6 +1,6 @@
 # fosdem-dl (FOSDEM talks downloder)
 
-![CI/CD](https://github.com/jackdbd/fosdem-dl/actions/workflows/ci-cd.yml/badge.svg)
+![CI/CD](https://github.com/jackdbd/fosdem-dl/actions/workflows/ci-cd.yaml/badge.svg)
 
 Download all talks from a [FOSDEM](https://fosdem.org/) conference track in a specific year.
 
