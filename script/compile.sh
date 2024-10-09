@@ -58,7 +58,7 @@ native-image -jar $UBERJAR_PATH $BINARY_NAME \
 if [ "${CI+x}" ]; then
   # We are on GitHub actions
   echo "We are on GitHub actions"
-  echo "Binary artifact is at $IMAGE_NAME"
+  echo "Binary artifact is at $BINARY_NAME"
 else
   echo "We are NOT on GitHub actions"
   mv "$BINARY_NAME" "target/$BINARY_NAME"
