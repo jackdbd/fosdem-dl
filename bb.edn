@@ -125,6 +125,11 @@
            (println cmd)
            (shell cmd))}
 
+  container:scan
+  {:doc "Scan the container image with Trivy"
+      ;; :depends [container:build]
+   :task (shell (format "trivy image --severity MEDIUM,HIGH,CRITICAL -f table %s" image-tag))}
+
   -graph:gen
   {:task (clojure "-X:hiera" :layout :vertical)}
 

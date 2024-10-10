@@ -39,6 +39,7 @@
     graalvmCEPackages.graalvm-ce-musl
 
     neil
+    trivy # vulnerability scanner for containers
   ];
 
   pre-commit.hooks = {
