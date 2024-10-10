@@ -184,6 +184,13 @@ jobs:
         uses: docker/metadata-action@v5.5.1
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          # I don't know how to tell docker-metadata-action to extract the
+          # license, so I set it here explicitly.
+          # https://spdx.github.io/spdx-spec/v2.3/SPDX-license-expressions/
+          labels: |
+            org.opencontainers.image.description="CLI to download videos and slides from FOSDEM websites"
+            org.opencontainers.image.documentation=https://github.com/jackdbd/fosdem-dl/
+            org.opencontainers.image.licenses=MIT
 
       # https://github.com/marketplace/actions/build-and-push-docker-images
       - name: Build and push Docker image
@@ -196,6 +203,7 @@ jobs:
             APP_NAME=${{env.APP_NAME }}
             APP_VERSION=${{env.APP_VERSION }}
             BB_VERSION=1.4.192
+            CREATED_DATE=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.created'] }}
             JSOUP_POD_VERSION=0.4.0
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

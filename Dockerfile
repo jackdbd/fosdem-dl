@@ -106,17 +106,10 @@ RUN bb -e "(require '[babashka.pods :as pods]) \
 #     mv $JSOUP_POD_BB_PATH $JSOUP_POD_PATH && \
 #     rm -rf "/home/${NON_ROOT_USER}/.babashka"
 
+# When the image is built on GitHub Actions, additional labels are extracted by
+# docker-metadata-action and written to the container image by build-and-push-docker-images.
 # https://github.com/opencontainers/image-spec/blob/main/annotations.md
 LABEL org.opencontainers.image.created=${CREATED_DATE}
-LABEL org.opencontainers.image.description="CLI to download videos and slides from FOSDEM websites"
-# https://spdx.github.io/spdx-spec/v2.3/SPDX-license-expressions/
-LABEL org.opencontainers.image.licenses="MIT"
-# This is required when pushing the container image from a computer to GitHub's Container Registry.
-LABEL org.opencontainers.image.source=https://github.com/jackdbd/fosdem-dl
-LABEL org.opencontainers.image.title=fosdem-dl
-LABEL org.opencontainers.image.url=https://github.com/jackdbd/fosdem-dl
 
 ENTRYPOINT ["bb", "fosdem-dl.jar"]
 CMD ["help"]
-# CMD ["talks", "--help"]
-# CMD ["tracks", "--help"]
