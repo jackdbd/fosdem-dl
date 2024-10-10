@@ -184,6 +184,10 @@ jobs:
         uses: docker/metadata-action@v5.5.1
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          annotations: |
+            annotation[linux/amd64].org.opencontainers.image.revision=${{ github.sha }}
+            annotation.org.opencontainers.image.revision=${{ github.sha }}
+            fosdem-dl:annotation.org.opencontainers.image.revision=${{ github.sha }}
           # I don't know how to tell docker-metadata-action to extract the
           # license, so I set it here explicitly.
           # https://spdx.github.io/spdx-spec/v2.3/SPDX-license-expressions/
@@ -205,8 +209,9 @@ jobs:
             BB_VERSION=1.4.192
             CREATED_DATE=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.created'] }}
             JSOUP_POD_VERSION=0.4.0
-          tags: ${{ steps.meta.outputs.tags }}
+          annotations: ${{ steps.meta.outputs.annotations }}
           labels: ${{ steps.meta.outputs.labels }}
+          tags: ${{ steps.meta.outputs.tags }}
 
       # https://github.com/marketplace/actions/attest-build-provenance
       - name: Generate artifact attestation
