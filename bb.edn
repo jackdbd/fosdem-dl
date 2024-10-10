@@ -19,7 +19,9 @@
           (def app-version (:version project))
           (def jar (format "target/%s-%s.jar" app-name (:version project)))
           (def registry-namespace "jackdbd")
-          (def image-tag (format "ghcr.io/%s/%s:%s" registry-namespace app-name app-version)))
+          (def image-tag (format "ghcr.io/%s/%s:%s" registry-namespace app-name app-version))
+          (def remote-image-version "latest")
+          (def remote-image-tag (format "ghcr.io/%s/%s:%s" registry-namespace app-name remote-image-version)))
 
   build:bb-uber
   {:doc "Build Babashka uberjar (see: https://book.babashka.org/#_uberjar)"
@@ -119,14 +121,13 @@
            (shell cmd))}
 
   container:dive
-  {:doc "Inspect the container image layers with dive"
+  {:doc "Inspect layers of a local container image (with dive)"
     ;; :depends [container:build]
    :task (shell (format "dive %s" image-tag))}
 
   container:inspect
-  {:doc "Inspect container image layers with skopeo"
-   ;; :depends [container:build]
-   :task (shell (format "skopeo inspect docker://%s" image-tag))}
+  {:doc "Inspect a container image hosted on Container Registry (with skopeo)"
+   :task (shell (format "skopeo inspect docker://%s" remote-image-tag))}
 
   container:push
   {:doc "Push container image to GitHub Container Registry"
@@ -141,7 +142,7 @@
    :task (shell (format "trivy image --severity MEDIUM,HIGH,CRITICAL -f table %s" image-tag))}
 
   container:tags
-  {:doc "List all tags for the container image with skopeo"
+  {:doc "List all available tags for a container image hosted on Container Registry (with skopeo)"
    :task (shell (format "skopeo list-tags docker://ghcr.io/%s/%s" registry-namespace app-name))}
 
   -graph:gen

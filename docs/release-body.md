@@ -21,7 +21,7 @@ java -jar fosdem-dl-0.1.0-RC.1-standalone.jar
 Visit [this page](https://github.com/jackdbd/fosdem-dl/pkgs/container/fosdem-dl) to see the list of container images, then pull the one you want. For example:
 
 ```sh
-docker pull ghcr.io/jackdbd/fosdem-dl:0.1.0-rc.1
+docker pull ghcr.io/jackdbd/fosdem-dl:latest
 ```
 
 ## Binary [TODO]
