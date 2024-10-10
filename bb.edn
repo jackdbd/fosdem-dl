@@ -6,6 +6,7 @@
  :tasks
  {:requires ([babashka.process :refer [process check]]
              [clojure.edn :as edn]
+             [clojure.java.shell :refer [sh]]
              [clojure.string :as str]
              [fosdem-dl.talks-cli :refer [talks-cli]]
              [fosdem-dl.tracks-cli :refer [tracks-cli]]
@@ -21,7 +22,7 @@
           (def image-tag (format "ghcr.io/%s/%s:%s" registry-namespace app-name app-version)))
 
   build:bb-uber
-  {:doc "Build the Babashka uberjar (see: https://book.babashka.org/#_uberjar)"
+  {:doc "Build Babashka uberjar (see: https://book.babashka.org/#_uberjar)"
    :depends [clean:artifacts]
    :task (let [debug? false
                cmd (if (= "true" (System/getenv "DEBUG_BB_UBERJAR"))
@@ -32,29 +33,28 @@
            (shell cmd))}
 
   build:uber
-  {:doc "Build the uberjar"
+  {:doc "Build uberjar"
    :depends [clean:artifacts]
    :task (clojure "-T:build uber")}
 
   build:binary
-  {:doc "Compile the CLI into a statically-linked binary with GraalVM native-image (Linux only)"
-   ;; :depends [build:bb-uber]
-   ;; :depends [build:uber]
+  {:doc "Compile statically-linked binary with GraalVM native-image (Linux only)"
+   :depends [build:uber]
    :task (shell "script/compile.sh")}
 
   cp
-  {:doc "Print the classpath"
+  {:doc "Print classpath"
    :task (tasks/print-classpath)}
 
   clean
-  {:doc "Remove compilation artifacts, pods and downloads (in parallel)"
+  {:doc "Remove compilation artifacts and pods (in parallel)"
    :task (run '-clean {:parallel true})}
 
   -clean
-  {:depends [clean:artifacts clean:downloads clean:pods]}
+  {:depends [clean:artifacts clean:pods]}
 
   clean:artifacts
-  {:doc "Remove compilation artifacts"
+  {:doc "Remove compilation artifacts (uberjars, binaries)"
    :task (clojure "-T:build clean")}
 
   clean:downloads
@@ -70,13 +70,13 @@
            (shell cmd))}
 
   cli
-  {:doc "fosdem-dl CLI (e.g. 'bb cli talks -y 2019 -t llvm', 'bb cli tracks -y 2020')"
+  {:doc "Run CLI as Babashka script (e.g. 'bb cli talks -y 2019 -t llvm', 'bb cli tracks -y 2020')"
    :task (let [list *command-line-args*
                cmd (conj list "./src/fosdem_dl/cli.clj")]
            (shell cmd))}
 
   cli:debug
-  {:doc "Launch the CLI with bb --debug -x fosdem-dl.cli/-main"
+  {:doc "Run CLI with bb --debug -x fosdem-dl.cli/-main"
    ;; The usage of clojure.java.io/resource assumes a classpath, so
    ;; when this is used in your uberscript, you still have to set a
    ;; classpath and bring the resources along.
@@ -88,28 +88,32 @@
            (shell cmd))}
 
   dep:upgrade
-  {:doc "Upgrade all dependencies"
+  {:doc "Upgrade all dependencies declared in deps.edn"
    :task (shell "neil dep upgrade")}
 
   container:build
-  {:doc "Build the container image"
+  {:doc "Build container image"
    :task (let [created-date (str (java.time.ZonedDateTime/now))
+               ;; On NixOS, the SOURCE_DATE_EPOCH environment variable is often
+               ;; set to UTC 1980-01-01 00:00:00 as part of the system’s
+               ;; commitment to reproducible builds. But if we want tools like
+               ;; `docker image ls` to display the correct created date, we need
+               ;; to set SOURCE_DATE_EPOCH when building the container image.
+               epoch (str/trim (:out (sh "date" "+%s")))
                options ["--file" "Dockerfile"
                         "--build-arg" (str "APP_NAME=" app-name)
                         "--build-arg" (str "APP_VERSION=" app-version)
-                        "--build-arg" "DEBUG_BB_UBERJAR=true"
-                        "--build-arg" "JSOUP_POD_VERSION=0.4.0"
                         "--build-arg" (str "CREATED_DATE=" created-date)
-                        "--debug"
-                        #_"--quiet"
+                        "--build-arg" (str "JSOUP_POD_VERSION=" "0.4.0")
+                        #_"--no-cache"
                         "--tag" image-tag]
                cmd (format "docker build ./ %s" (str/join " " options))]
-           (println cmd)
-           (shell cmd))}
+           (println (format "SOURCE_DATE_EPOCH=%s %s" epoch cmd))
+           (shell {:extra-env {"SOURCE_DATE_EPOCH" epoch}}  cmd))}
 
   container:cli
-  {:doc "Execute the fosdem-dl CLI in a Docker container"
-;;    :depends [container:build]
+  {:doc "Run CLI in a container"
+   ;; :depends [container:build]
    :task (let [cmd (str/join " " (concat [(format "docker run --rm %s" image-tag)] *command-line-args*))]
            (println cmd)
            (shell cmd))}
@@ -119,16 +123,26 @@
     ;; :depends [container:build]
    :task (shell (format "dive %s" image-tag))}
 
+  container:inspect
+  {:doc "Inspect container image layers with skopeo"
+   ;; :depends [container:build]
+   :task (shell (format "skopeo inspect docker://%s" image-tag))}
+
   container:push
-  {:doc "Push the container image to GitHub Container Registry"
+  {:doc "Push container image to GitHub Container Registry"
+;;    :depends [container:build container:scan]
    :task (let [cmd (format "docker push %s" image-tag)]
            (println cmd)
            (shell cmd))}
 
   container:scan
-  {:doc "Scan the container image with Trivy"
-      ;; :depends [container:build]
+  {:doc "Scan container image with Trivy"
+;;    :depends [container:build]
    :task (shell (format "trivy image --severity MEDIUM,HIGH,CRITICAL -f table %s" image-tag))}
+
+  container:tags
+  {:doc "List all tags for the container image with skopeo"
+   :task (shell (format "skopeo list-tags docker://ghcr.io/%s/%s" registry-namespace app-name))}
 
   -graph:gen
   {:task (clojure "-X:hiera" :layout :vertical)}
@@ -141,19 +155,10 @@
    :doc "Generate a graph of dependencies between namespaces and copy the image to resources/img"
    :task (shell "feh resources/img/namespaces.png")}
 
-  pod:upgrade
-  {:doc "Download the latest com.github.jackdbd/pod-jackdbd-jsoup available on GitHub Releases"
+  pod:download
+  {:doc "Download a version of pod-jackdbd-jsoup hosted on GitHub Releases (see POD_JACKDBD_JSOUP_VERSION environment variable)"
    :task (shell "./download_pod_jackdbd_jsoup.sh")}
 
   test
   {:doc "Run all tests"
-   :task (shell "bb test_runner.clj")}
-
-  ;; https://github.com/liquidz/babashka-test-action/?tab=readme-ov-file#local-usage
-  test:action
-  {:doc "Run all tests in a container, using https://github.com/liquidz/babashka-test-action/"
-   :task (let [working-dir (-> (process ["pwd"] {:out :string})
-                               check :out str/split-lines first)
-               cmd (format "docker run --rm -v %s:/tmp -w /tmp uochan/babashka-test 'src' 'test' '_test.clj$'" working-dir)]
-           (println cmd)
-           (shell cmd))}}}
+   :task (shell "bb test_runner.clj")}}}

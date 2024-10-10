@@ -14,23 +14,32 @@ RUN if [ -z "${APP_NAME}" ] ; then echo "APP_NAME not set!" ; exit 1; fi
 ARG APP_VERSION
 RUN if [ -z "${APP_VERSION}" ] ; then echo "APP_VERSION not set!" ; exit 1; fi
 
-# If you need to use a version of pod-jackdbd-jsoup not available on the pod
-# registry, you will need to download it and place it where bb.edn declares it
-# (it would be {:pods {some-pod {:path "some-path"}}}). 
-# ARG JSOUP_POD_PATH="resources/pod/pod-jackdbd-jsoup"
-
 ARG CREATED_DATE
+RUN if [ -z "${CREATED_DATE}" ] ; then echo "CREATED_DATE not set!" ; exit 1; fi
 
 # https://github.com/babashka/babashka/releases
 ARG BB_VERSION="1.4.192"
 
-RUN apt update
-RUN apt install wget
-RUN wget --directory-prefix /tmp "https://github.com/babashka/babashka/releases/download/v${BB_VERSION}/babashka-${BB_VERSION}-linux-amd64-static.tar.gz"
-RUN tar xf "/tmp/babashka-${BB_VERSION}-linux-amd64-static.tar.gz" --directory=/tmp
-RUN mv /tmp/bb /usr/local/bin/bb
+# Case A: pod version on pod registry
+# Babashka will download the pod here when running any Babashka task, like
+# `bb run build:bb-uber`, because in the bb.edn file we specified a `:version`
+# of this pod which is available on pod registry.
+# ARG JSOUP_POD_VERSION
+# RUN if [ -z "${JSOUP_POD_VERSION}" ] ; then echo "JSOUP_POD_VERSION not set!" ; exit 1; fi
+# Case B: pod version NOT on pod registry
+# If you need to use a version of pod-jackdbd-jsoup which is not available on
+# pod registry, you will need to use `:path` in the bb.edn file, download the
+# pod it manually, and place it where bb.edn declares it.
+# (e.g. {:pods {com.github.jackdbd/jsoup {:path "/usr/src/app/pods/jsoup"}}}).
 
-RUN mkdir -p ${APP_DIR}
+# Use a single RUN instruction to create just one layer in the container image.
+RUN apt update && \
+    apt install wget && \
+    wget --directory-prefix /tmp "https://github.com/babashka/babashka/releases/download/v${BB_VERSION}/babashka-${BB_VERSION}-linux-amd64-static.tar.gz" && \
+    tar xf "/tmp/babashka-${BB_VERSION}-linux-amd64-static.tar.gz" --directory=/tmp && \
+    mv /tmp/bb /usr/local/bin/bb && \
+    mkdir -p ${APP_DIR}
+
 WORKDIR ${APP_DIR}
 
 # I think that resources (i.e. assets) and source code change frequently, while
@@ -43,8 +52,8 @@ COPY bb ${APP_DIR}/bb
 # COPY ${JSOUP_POD_PATH} ${APP_DIR}/${JSOUP_POD_PATH}
 COPY src ${APP_DIR}/src
 
-RUN bb run build:bb-uber
-RUN mv target/${APP_NAME}-${APP_VERSION}.jar "${APP_NAME}.jar"
+RUN bb run build:bb-uber && \
+    mv target/${APP_NAME}-${APP_VERSION}.jar "${APP_NAME}.jar"
 
 # === STAGE 2 ================================================================ #
 # Run the uberjar
@@ -53,28 +62,36 @@ RUN mv target/${APP_NAME}-${APP_VERSION}.jar "${APP_NAME}.jar"
 # skopeo list-tags docker://docker.io/babashka/babashka
 FROM docker.io/babashka/babashka:1.4.193-SNAPSHOT AS bb-uberjar-runner
 
-ARG NON_ROOT_USER=zaraki
-RUN groupadd --gid 1234 $NON_ROOT_USER && \
-    useradd --uid 1234 --gid 1234 --shell /bin/bash --create-home $NON_ROOT_USER
-
 ARG APP_DIR=/usr/src/app
+RUN if [ -z "${APP_DIR}" ] ; then echo "APP_DIR not set!" ; exit 1; fi
+
+ARG CREATED_DATE
+RUN if [ -z "${CREATED_DATE}" ] ; then echo "CREATED_DATE not set!" ; exit 1; fi
+
 ARG JSOUP_POD_VERSION
 RUN if [ -z "${JSOUP_POD_VERSION}" ] ; then echo "JSOUP_POD_VERSION not set!" ; exit 1; fi
-ARG CREATED_DATE
+
+ARG NON_ROOT_USER=zaraki
+RUN if [ -z "${NON_ROOT_USER}" ] ; then echo "NON_ROOT_USER not set!" ; exit 1; fi
+
+RUN groupadd --gid 1234 $NON_ROOT_USER && \
+    useradd --uid 1234 --gid 1234 --shell /bin/bash --create-home $NON_ROOT_USER
 
 USER $NON_ROOT_USER
 WORKDIR "/home/$NON_ROOT_USER"
 
 COPY --from=bb-uberjar-builder "${APP_DIR}/fosdem-dl.jar" fosdem-dl.jar
 
-# Babashka downloads pods to $HOME/.babashka/pods/repository, but in my bb.edn
-# I declared that this pod is at resources/pod/pod-jackdbd-jsoup
-# ARG JSOUP_POD_PATH="resources/pod/pod-jackdbd-jsoup"
-# ARG JSOUP_POD_BB_PATH="/home/${NON_ROOT_USER}/.babashka/pods/repository/com.github.jackdbd/pod.jackdbd.jsoup/$JSOUP_POD_VERSION/linux/x86_64/pod-jackdbd-jsoup"
+# Bake the jsoup pod into the container image.
+# NOTE: we could avoid baking the pod into the container image and save ~15 MB,
+# but this would mean that Babashka will have to download the pod at runtime
+# every single time the container starts.
 
-# We can either copy the pod from the previous stage...
-# COPY --from=bb-uberjar-builder "${APP_DIR}/${JSOUP_POD_PATH}" "${JSOUP_POD_PATH}"
-#...or let Babashka download it from the pod registry (if it's available there).
+# Option A: if the builder stage has already downloaded the pod, copied it,
+# created a non-root user and gave that user execution permissions on the pod,
+# we have nothing to do here.
+
+# Option B: we let Babashka re-download the pod from the pod registry.
 RUN bb -e "(require '[babashka.pods :as pods]) \
 (pods/load-pod 'com.github.jackdbd/jsoup \"${JSOUP_POD_VERSION}\")"
 
@@ -83,18 +100,22 @@ RUN bb -e "(require '[babashka.pods :as pods]) \
 # An alternative to this mess would be to set the BABASHKA_PODS_DIR environment
 # variable, I think.
 # https://github.com/babashka/pods?tab=readme-ov-file#where-does-the-pod-come-from
-# NOTE: I use a single RUN instruction to save one layer in the container image.
-# We could download the pod with one RUN instruction and then move it with
-# another one, but this would create an additional layer of roughly 26 MB.
-# TIP: You can use dive to inspect the layers of the container image.
 # RUN bb -e "(require '[babashka.pods :as pods]) \
 # (pods/load-pod 'com.github.jackdbd/jsoup \"${JSOUP_POD_VERSION}\")" && \
 #     mkdir -p $(dirname $JSOUP_POD_PATH) && \
 #     mv $JSOUP_POD_BB_PATH $JSOUP_POD_PATH && \
 #     rm -rf "/home/${NON_ROOT_USER}/.babashka"
 
+# https://github.com/opencontainers/image-spec/blob/main/annotations.md
 LABEL org.opencontainers.image.created=${CREATED_DATE}
+LABEL org.opencontainers.image.description="CLI to download videos and slides from FOSDEM websites"
+# https://spdx.github.io/spdx-spec/v2.3/SPDX-license-expressions/
+LABEL org.opencontainers.image.licenses="MIT"
+# This is required when pushing the container image from a computer to GitHub's Container Registry.
 LABEL org.opencontainers.image.source=https://github.com/jackdbd/fosdem-dl
+LABEL org.opencontainers.image.title=fosdem-dl
+LABEL org.opencontainers.image.url=https://github.com/jackdbd/fosdem-dl
+
 ENTRYPOINT ["bb", "fosdem-dl.jar"]
 CMD ["help"]
 # CMD ["talks", "--help"]
